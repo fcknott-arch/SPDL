@@ -24,15 +24,17 @@ def ktc():
     html = get("https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=2")
     # KTC embeds several player arrays; take the largest one that carries superflex values.
     best, info = None, []
-    for m in re.finditer(r"(?:var|let|const)?\s*(\w+)\s*=\s*\[\{", html):
+    for m in re.finditer(r"(?:var|let|const)?\s*(\w+)\s*=\s*\[\s*\{", html):
         try:
-            a, _ = json.JSONDecoder().raw_decode(html, m.end() - 2)
+            a, _ = json.JSONDecoder().raw_decode(html, html.rindex("[", 0, m.end()))
         except Exception:
             continue
         sf = sum(1 for x in a if isinstance(x, dict) and x.get("superflexValues"))
         info.append(f"{m.group(1)}:{len(a)}/{sf}")
         if sf and (best is None or sf > best[0]):
             best = (sf, a)
+    pa = [html[i-40:i+120] for i in [mm.start() for mm in re.finditer("playersArray", html)][:4]]
+    info.append(f"playersArray ctx: {pa}")
     if not best:
         raise RuntimeError(f"KTC player list not found ({len(html)} bytes) arrays={info[:20]}")
     arr = best[1]
