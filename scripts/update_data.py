@@ -22,15 +22,13 @@ def players():
 
 def ktc():
     html = get("https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=2")
-    m = re.search(r"playersArray\s*=\s*\[", html)
+    m = re.search(r"superflexPlayers\s*=\s*\[", html) or re.search(r"playersArray\s*=\s*\[", html)
     if not m:
-        names = sorted(set(re.findall(r"(?:var|let|const)\s+(\w+)\s*=", html)))[:60]
-        i = html.find("superflexPlayers")
-        raise RuntimeError(f"KTC playersArray not found ({len(html)} bytes). ctx={html[max(0,i-80):i+160]!r}")
+        raise RuntimeError(f"KTC player list not found ({len(html)} bytes)")
     arr, _ = json.JSONDecoder().raw_decode(html, m.end() - 1)
     plist, picks = [], {}
     for p in arr:
-        v = (p.get("superflexValues") or {}).get("value", 0)
+        v = (p.get("superflexValues") or {}).get("value") or p.get("value") or 0
         if p.get("position") == "RDP":
             picks[p["playerName"]] = v
         else:
@@ -45,6 +43,8 @@ if __name__ == "__main__":
     for fn in (players, ktc):
         try:
             fn(); status[fn.__name__] = "ok"
+            if fn is ktc:
+                k = json.loads((OUT / "ktc.json").read_text()); status["ktc_count"] = [len(k["players"]), len(k["picks"])]; status["ktc_top"] = sorted(k["players"], key=lambda x: -x[4])[:3]
         except Exception as e:
             status[fn.__name__] = f"failed: {type(e).__name__}: {e}"[:1500]
             print(f"{fn.__name__} failed: {e}", file=sys.stderr)
