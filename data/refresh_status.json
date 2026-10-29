@@ -1,5 +1,5 @@
 {
- "gen": "2026-10-29T19:13:29.465983+00:00",
+ "gen": "2026-10-29T19:14:01.714028+00:00",
  "players": "ok",
- "ktc": "failed: RuntimeError: Only 5 KTC players parsed; refusing to overwrite; arrays=['oneQBPlayers:3/3', 'superflexPlayers:3/3', 'top5RisersOneQB:5/5', 'top5FallersOneQB:5/5', 'top5RisersSuperflex:5/5', 'top5FallersSuperflex:5/5', 'top5VftRisersOneQB:5/5', 'top5VftFallersOneQB:5/5', 'top5VftRisersSuperflex:5/5', 'top5VftFallersSuperflex:5/5', 'top5BlendRisersOneQB:5/5', 'top5BlendFallersOneQB:5/5', 'top5BlendRisersSuperflex:5/5', 'top5BlendFallersSuperflex:5/5']"
+ "ktc": "failed: RuntimeError: Only 5 KTC players parsed; refusing to overwrite; arrays=['oneQBPlayers:3/3', 'superflexPlayers:3/3', 'top5RisersOneQB:5/5', 'top5FallersOneQB:5/5', 'top5RisersSuperflex:5/5', 'top5FallersSuperflex:5/5', 'top5VftRisersOneQB:5/5', 'top5VftFallersOneQB:5/5', 'top5VftRisersSuperflex:5/5', 'top5VftFallersSuperflex:5/5', 'top5BlendRisersOneQB:5/5', 'top5BlendFallersOneQB:5/5', 'top5BlendRisersSuperflex:5/5', 'top5BlendFallersSuperflex:5/5', 'playersArray ctx: [\"script>\\\\n    var leagueType = 1;\\\\n    var playersArray = JSON.parse(document.getElementById(\\'ktc-players\\').textContent);\\\\n    var oneQBSC = false;\\\\n    var sfSC = f\"]']"
 }
