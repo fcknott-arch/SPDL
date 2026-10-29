@@ -24,7 +24,9 @@ def ktc():
     html = get("https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=2")
     m = re.search(r"playersArray\s*=\s*\[", html)
     if not m:
-        raise RuntimeError(f"KTC playersArray not found (got {len(html)} bytes; starts {html[:120]!r})")
+        names = sorted(set(re.findall(r"(?:var|let|const)\s+(\w+)\s*=", html)))[:60]
+        i = html.find("playersArray")
+        raise RuntimeError(f"KTC playersArray not found ({len(html)} bytes). vars={names} ctx={html[max(0,i-80):i+160]!r}")
     arr, _ = json.JSONDecoder().raw_decode(html, m.end() - 1)
     plist, picks = [], {}
     for p in arr:
