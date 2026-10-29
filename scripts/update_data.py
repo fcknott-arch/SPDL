@@ -22,10 +22,21 @@ def players():
 
 def ktc():
     html = get("https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=2")
-    m = re.search(r"superflexPlayers\s*=\s*\[", html) or re.search(r"playersArray\s*=\s*\[", html)
-    if not m:
-        raise RuntimeError(f"KTC player list not found ({len(html)} bytes)")
-    arr, _ = json.JSONDecoder().raw_decode(html, m.end() - 1)
+    # KTC embeds several player arrays; take the largest one that carries superflex values.
+    best, info = None, []
+    for m in re.finditer(r"(?:var|let|const)?\s*(\w+)\s*=\s*\[\{", html):
+        try:
+            a, _ = json.JSONDecoder().raw_decode(html, m.end() - 2)
+        except Exception:
+            continue
+        sf = sum(1 for x in a if isinstance(x, dict) and x.get("superflexValues"))
+        info.append(f"{m.group(1)}:{len(a)}/{sf}")
+        if sf and (best is None or sf > best[0]):
+            best = (sf, a)
+    if not best:
+        raise RuntimeError(f"KTC player list not found ({len(html)} bytes) arrays={info[:20]}")
+    arr = best[1]
+    print("KTC arrays:", info)
     plist, picks = [], {}
     for p in arr:
         v = (p.get("superflexValues") or {}).get("value") or p.get("value") or 0
@@ -34,7 +45,7 @@ def ktc():
         else:
             plist.append([p["playerName"], p.get("position"), p.get("team"), p.get("age"), v])
     if len(plist) < 200:
-        raise RuntimeError(f"Only {len(plist)} KTC players parsed; refusing to overwrite")
+        raise RuntimeError(f"Only {len(plist)} KTC players parsed; refusing to overwrite; arrays={info[:20]}")
     (OUT / "ktc.json").write_text(json.dumps({"gen": now, "players": plist, "picks": picks}, separators=(",", ":")))
     print("ktc players:", len(plist), "picks:", len(picks))
 
