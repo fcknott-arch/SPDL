@@ -22,10 +22,10 @@ def players():
 
 def ktc():
     html = get("https://keeptradecut.com/dynasty-rankings?page=0&filters=QB|WR|RB|TE|RDP&format=2")
-    m = re.search(r"var\s+playersArray\s*=\s*(\[.*?\]);\s*\n", html, re.S)
+    m = re.search(r"playersArray\s*=\s*\[", html)
     if not m:
-        raise SystemExit("KTC playersArray not found; page layout may have changed")
-    arr = json.loads(m.group(1))
+        raise RuntimeError(f"KTC playersArray not found (got {len(html)} bytes; starts {html[:120]!r})")
+    arr, _ = json.JSONDecoder().raw_decode(html, m.end() - 1)
     plist, picks = [], {}
     for p in arr:
         v = (p.get("superflexValues") or {}).get("value", 0)
@@ -34,14 +34,16 @@ def ktc():
         else:
             plist.append([p["playerName"], p.get("position"), p.get("team"), p.get("age"), v])
     if len(plist) < 200:
-        raise SystemExit(f"Only {len(plist)} KTC players parsed; refusing to overwrite")
+        raise RuntimeError(f"Only {len(plist)} KTC players parsed; refusing to overwrite")
     (OUT / "ktc.json").write_text(json.dumps({"gen": now, "players": plist, "picks": picks}, separators=(",", ":")))
     print("ktc players:", len(plist), "picks:", len(picks))
 
 if __name__ == "__main__":
-    ok = True
+    status = {"gen": now}
     for fn in (players, ktc):
-        try: fn()
+        try:
+            fn(); status[fn.__name__] = "ok"
         except Exception as e:
-            ok = False; print(f"{fn.__name__} failed: {e}", file=sys.stderr)
-    sys.exit(0 if ok else 1)
+            status[fn.__name__] = f"failed: {type(e).__name__}: {e}"[:500]
+            print(f"{fn.__name__} failed: {e}", file=sys.stderr)
+    (OUT / "refresh_status.json").write_text(json.dumps(status, indent=1))
