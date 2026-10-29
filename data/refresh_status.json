@@ -1,5 +1,5 @@
 {
- "gen": "2026-10-29T19:11:49.246284+00:00",
+ "gen": "2026-10-29T19:12:15.859755+00:00",
  "players": "ok",
- "ktc": "failed: RuntimeError: KTC playersArray not found (2712842 bytes). vars=['beta', 'blendRatio', 'currentHideAlertBannerCookieName', 'filteredPlayersIds', 'formatCookie', 'gtag', 'historiesVersion', 'isBlendSliderEnabled', 'lastProcessedTimes', 'leagueType', 'n', 'oneQBPlayers', 'oneQBSC', 'playersArray', 'rookieOverall', 'rookiePage', 'rookiePositional', 's', 'sfAlert', 'sfSC', 'showModal', 'singlePositionString', 'superflexPlayers', 't', 'top5BlendFallersOneQB', 'top5BlendFallersSuperflex', 'top5"
+ "ktc": "failed: RuntimeError: KTC playersArray not found (2712487 bytes). ctx='ge\":\"Penn State\",\"byeWeek\":7,\"injury\":{\"injuryCode\":1},\"mflid\":16269}];\\n    var superflexPlayers = [{\"playerName\":\"Najee Harris\",\"playerID\":1031,\"slug\":\"najee-harris-1031\",\"position\":\"RB\",\"positionID\":2,\"team\":\"FA\",\"rookie\":false,\"age\":28.6'"
 }
