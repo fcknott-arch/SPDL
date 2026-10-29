@@ -1,0 +1,5 @@
+{
+ "gen": "2026-10-29T19:11:15.318795+00:00",
+ "players": "ok",
+ "ktc": "failed: RuntimeError: KTC playersArray not found (got 2714500 bytes; starts '<!DOCTYPE html>\\n<html lang=\"en\">\\n<head>\\n\\n    <script>var gtag = false;</script>\\n\\n    \\n        <!-- Global site tag (gtag')"
+}
