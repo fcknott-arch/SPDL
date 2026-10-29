@@ -25,8 +25,8 @@ def ktc():
     m = re.search(r"playersArray\s*=\s*\[", html)
     if not m:
         names = sorted(set(re.findall(r"(?:var|let|const)\s+(\w+)\s*=", html)))[:60]
-        i = html.find("playersArray")
-        raise RuntimeError(f"KTC playersArray not found ({len(html)} bytes). vars={names} ctx={html[max(0,i-80):i+160]!r}")
+        i = html.find("superflexPlayers")
+        raise RuntimeError(f"KTC playersArray not found ({len(html)} bytes). ctx={html[max(0,i-80):i+160]!r}")
     arr, _ = json.JSONDecoder().raw_decode(html, m.end() - 1)
     plist, picks = [], {}
     for p in arr:
@@ -46,6 +46,6 @@ if __name__ == "__main__":
         try:
             fn(); status[fn.__name__] = "ok"
         except Exception as e:
-            status[fn.__name__] = f"failed: {type(e).__name__}: {e}"[:500]
+            status[fn.__name__] = f"failed: {type(e).__name__}: {e}"[:1500]
             print(f"{fn.__name__} failed: {e}", file=sys.stderr)
     (OUT / "refresh_status.json").write_text(json.dumps(status, indent=1))
