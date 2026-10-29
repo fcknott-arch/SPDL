@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && exists(/databases/$(db)/documents/admins/$(request.auth.uid)); }
+    function isMember() { return signedIn() && exists(/databases/$(db)/documents/members/$(request.auth.uid))
+                          && get(/databases/$(db)/documents/members/$(request.auth.uid)).data.team != null; }
+    function small(s, n) { return s is string && s.size() <= n; }
+
+    // Commissioner accounts. Create these by hand in the Firebase console.
+    match /admins/{uid} { allow read: if signedIn() && request.auth.uid == uid; allow write: if false; }
+
+    // Settings the site reads, like pick'em lock times. Admin-only writes.
+    match /config/{doc} { allow read: if true; allow write: if isAdmin(); }
+
+    // Which Google account owns which team. One claim per team.
+    match /claims/{team} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid
+                    && team.matches('^[0-9]$') && request.resource.data.keys().hasOnly(['uid']);
+      allow delete: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update: if isAdmin();
+    }
+    match /members/{uid} {
+      allow read: if true;
+      allow write: if isAdmin() || (signedIn() && request.auth.uid == uid && (
+        request.resource.data.team == null ||
+        get(/databases/$(db)/documents/claims/$(string(request.resource.data.team))).data.uid == uid ||
+        getAfter(/databases/$(db)/documents/claims/$(string(request.resource.data.team))).data.uid == uid));
+    }
+
+    // Pick'em: each week locks at Thursday kickoff (times in config/locks, ms since epoch).
+    match /pickem/{uid}/weeks/{week} {
+      allow read: if true;
+      allow write: if isMember() && request.auth.uid == uid
+                   && request.time.toMillis() < get(/databases/$(db)/documents/config/locks).data[week];
+    }
+    match /{path=**}/weeks/{week} { allow read: if true; }
+
+    match /votes/{uid} {
+      allow read: if true;
+      allow write: if isMember() && request.auth.uid == uid;
+    }
+    match /block/{uid} {
+      allow read: if true;
+      allow write: if (isMember() && request.auth.uid == uid
+                       && small(request.resource.data.offering, 600) && small(request.resource.data.seeking, 600)) ;
+      allow delete: if isAdmin() || (signedIn() && request.auth.uid == uid);
+    }
+    match /polls/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /posts/{id} { allow read: if true; allow write: if isAdmin(); }
+  }
+}
