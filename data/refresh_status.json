@@ -1,5 +1,5 @@
 {
- "gen": "2026-11-06T17:28:56.445260+00:00",
+ "gen": "2026-11-07T16:25:04.868754+00:00",
  "players": "ok",
  "ktc": "ok",
  "ktc_count": [
@@ -8,25 +8,25 @@
  ],
  "ktc_top": [
   [
+   "Jaxon Smith-Njigba",
+   "WR",
+   "SEA",
+   24.7,
+   9999
+  ],
+  [
    "Jahmyr Gibbs",
    "RB",
    "DET",
    24.6,
-   9999
+   9998
   ],
   [
    "Josh Allen",
    "QB",
    "BUF",
    30.5,
-   9996
-  ],
-  [
-   "Jaxon Smith-Njigba",
-   "WR",
-   "SEA",
-   24.7,
-   9994
+   9991
   ]
  ]
 }
