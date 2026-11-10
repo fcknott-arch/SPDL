@@ -2,10 +2,16 @@
  "note": "From the league's Sleeper chat, 2020–2026. Quotes lightly trimmed.",
  "timeline": [
   [
+   "2020-09-02",
+   "draft",
+   "The ESPN startup draft",
+   "The league began on ESPN as the SP Dynasty League: 10 teams, a 23-round snake draft. Christian McCaffrey went 1.01."
+  ],
+  [
    "2020-11-12",
    "format",
-   "League starts",
-   "The 2020 startup draft: 10 teams, 1QB, keeper format."
+   "Moves to Sleeper",
+   "The league moved from ESPN to Sleeper as a keeper league, with rosters brought over in a 25-round draft."
   ],
   [
    "2020-11-13",
@@ -170,6 +176,158 @@
   ],
   "1790689622": [
    "\"This is the worst trade to go down in 4 years.\" — colek23"
+  ]
+ },
+ "espn2020": {
+  "date": "2020-09-02",
+  "rounds": 23,
+  "owners": {
+   "Big Breasts": 3,
+   "Zander Sutton": 7,
+   "Team Hastings": 6,
+   "Team Hook": 8,
+   "Bezito's Boys Bez": 10,
+   "Jonny Cake": 0,
+   "Declan ❤️'S Cait": 2,
+   "Trevor See More": 5,
+   "Jaden Sand": 4,
+   "Team Carroll": 1
+  },
+  "round1": [
+   [
+    1,
+    "Big Breasts",
+    "Christian McCaffrey",
+    "RB"
+   ],
+   [
+    2,
+    "Zander Sutton",
+    "Saquon Barkley",
+    "RB"
+   ],
+   [
+    3,
+    "Team Hastings",
+    "Michael Thomas",
+    "WR"
+   ],
+   [
+    4,
+    "Team Hook",
+    "Ezekiel Elliott",
+    "RB"
+   ],
+   [
+    5,
+    "Bezito's Boys Bez",
+    "Dalvin Cook",
+    "RB"
+   ],
+   [
+    6,
+    "Jonny Cake",
+    "Alvin Kamara",
+    "RB"
+   ],
+   [
+    7,
+    "Declan ❤️'S Cait",
+    "Patrick Mahomes",
+    "QB"
+   ],
+   [
+    8,
+    "Trevor See More",
+    "Clyde Edwards-Helaire",
+    "RB"
+   ],
+   [
+    9,
+    "Jaden Sand",
+    "Lamar Jackson",
+    "QB"
+   ],
+   [
+    10,
+    "Team Carroll",
+    "Derrick Henry",
+    "RB"
+   ]
+  ],
+  "steals": [
+   [
+    42,
+    "Zander Sutton",
+    "Josh Allen",
+    "QB"
+   ],
+   [
+    110,
+    "Team Carroll",
+    "Joe Burrow",
+    "QB"
+   ],
+   [
+    111,
+    "Team Carroll",
+    "Justin Jefferson",
+    "WR"
+   ],
+   [
+    116,
+    "Bezito's Boys Bez",
+    "CeeDee Lamb",
+    "WR"
+   ],
+   [
+    145,
+    "Bezito's Boys Bez",
+    "Tee Higgins",
+    "WR"
+   ],
+   [
+    151,
+    "Team Carroll",
+    "Justin Herbert",
+    "QB"
+   ],
+   [
+    206,
+    "Jonny Cake",
+    "Jalen Hurts",
+    "QB"
+   ]
+  ]
+ },
+ "chapters": {
+  "2020": [
+   "Year one: ESPN to Sleeper",
+   "The league started on ESPN as the SP Dynasty League, with a 23-round snake draft on Sept. 2, 2020. In November it moved to Sleeper as a keeper league, bringing rosters over in a 25-round draft. The toilet-bowl punishment and the first \"corrupt commish\" poll both date to that December."
+  ],
+  "2021": [
+   "Dynasty, superflex and max PF",
+   "The biggest year of change. The keeper league became full dynasty in February, the first rookie draft (1QB, snake) wrapped on May 3, max PF became the draft-order rule on May 25, and the league voted in superflex a week later. It's also the year chook (colinhook) went 0–14."
+  ],
+  "2022": [
+   "The first superflex draft",
+   "Breece Hall went 1.01 in the first superflex rookie draft, and Kenny Pickett became the first QB ever taken in a superflex first round. A taxi squad was voted down 3–1, and the buy-in stayed put."
+  ],
+  "2023": [
+   "Back to back",
+   "Mbort took over georgebez's team. Bijan Robinson went 1.01, Lamb Talk (natelivingston) went 14–0 in the regular season, and the toilet-bowl trophy was renamed The Hook Cup after colinhook's third straight."
+  ],
+  "2024": [
+   "The expansion that wasn't",
+   "The buy-in rose to $50 with new payouts and a draft lottery. The league voted 8–1 to expand to 12, ran an expansion draft for two new owners, then voted 8–2 to remove them weeks later. Rookie drafts went linear, and Marvin Harrison Jr. went 1.01."
+  ],
+  "2025": [
+   "From 0–14 to the top",
+   "Ashton Jeanty went 1.01 and the rookie draft got a 24-hour pick timer. Four years after an 0–14 season, colinhook's rebuild peaked."
+  ],
+  "2026": [
+   "The season in progress",
+   "Jeremiyah Love went 1.01. The season is still being played."
   ]
  }
 }

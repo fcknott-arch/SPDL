@@ -356,7 +356,7 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   $('tf-x').onclick=()=>{TF={season:"all",team:"all",pos:"all",fmt:"all",sort:"new",q:"",n:30}; R.trades(el);};
   $('tl-more').onclick=()=>{TF.n+=30; draw();};
   el.addEventListener('click',e=>{ const h=e.target.closest('.heist'); if(h){ const ts=+h.dataset.ts; TF={season:"all",team:"all",pos:"all",fmt:"all",sort:"new",q:"",n:999}; R.trades(el); const c=document.querySelector(`.trade[data-ts="${ts}"]`); if(c){ c.querySelector('details').open=true; c.scrollIntoView({behavior:'smooth',block:'start'}); } } });
-  draw(); };
+  draw(); if(PENDING_TRADE){ const ts=PENDING_TRADE; PENDING_TRADE=null; setTimeout(()=>{ const c=document.querySelector(`.trade[data-ts="${ts}"]`); if(c){ c.querySelector('details').open=true; c.scrollIntoView({behavior:'smooth',block:'start'}); } },50); } };
 function tradeCard(t){ const nets=tradeNet(t); const best=Math.max(...nets); const d=new Date(t[2]*1000); const q1=oneQBAt(t[2]);
   const chat=LORE&&LORE.tradeChat&&LORE.tradeChat[String(t[2])];
   return `<div class="card trade" data-ts="${t[2]}"><div class="meta"><span>${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} · ${t[0]} season${t[1]>1?`, Week ${t[1]}`:''}${chat?' · <span title="The league talked about this one">💬</span>':''}</span><span>${t[3].length}-team trade · ${q1?'1QB':'Superflex'}</span></div>
@@ -403,25 +403,51 @@ function scatter(ppg){ const W=720,H=360,l=60,r=700,tp=20,b=310; const xs=[...Ar
 
 /* ---------------- HISTORY ---------------- */
 const BADNAME=/fag|fuck/i;
-R.history=function(el){ const done=S.hist.filter(h=>h.done).sort((a,b)=>b.s-a.s);
+R.history=function(el){
+  if(!DR){ j('data/drafts.json').then(d=>{DR=d; if(current()==='history') R.history(el);}).catch(()=>{DR={ones:[]}; if(current()==='history') R.history(el);}); }
+  const seasons=[...S.hist].sort((a,b)=>a.s-b.s); const nm=(h,i)=>{const n=h.names[i]; return n&&!BADNAME.test(n)?n:HANDLE(i);};
+  const seasonOf=d=>{ const y=+d.slice(0,4), m=+d.slice(5,7); return m<=1?y-1:y; };
+  const ev=y=>(LORE&&LORE.timeline?LORE.timeline:[]).filter(x=>seasonOf(x[0])===y);
+  const chap=y=>(LORE&&LORE.chapters&&LORE.chapters[String(y)])||[`${y}`,''];
+  const dateS=(d,y)=>new Date(d+'T12:00:00Z').toLocaleDateString('en-US',+d.slice(0,4)!==y?{month:'short',day:'numeric',year:'numeric'}:{month:'short',day:'numeric'});
+  const espn=LORE&&LORE.espn2020;
+  const chapter=h=>{ const y=h.s, [title,intro]=chap(y), w=S.whatif.find(x=>x.s===y), st=[...h.st].sort((a,b)=>b[1]-a[1]||b[3]-a[3]);
+    const fin=w&&w.games.find(g=>g[0]===2); const one=DR&&DR.ones?DR.ones.find(o=>o[0]===y):null;
+    const yt=TRADES.filter(t=>t[0]===y).map(t=>{const n=tradeNet(t);const i=n.indexOf(Math.max(...n));return {t,i,v:n[i]};}).sort((a,b)=>b.v-a.v)[0];
+    const talked=TRADES.filter(t=>t[0]===y&&LORE&&LORE.tradeChat&&LORE.tradeChat[String(t[2])]);
+    const fav=w&&w.eq&&w.eq.length?w.eq[0]:null; const champOdds=w&&w.eq?(w.eq.find(e=>e[0]===h.champ)||[0,0])[1]:0;
+    return `<section class="card story" id="y${y}" style="display:grid;gap:14px">
+      <div><div class="kicker">${y} season</div><h3 style="font-size:28px;margin:2px 0 6px">${esc(title)}</h3>${intro?`<p style="margin:0;max-width:70ch">${esc(intro)}</p>`:''}</div>
+      ${y===2020&&espn?`<div><div class="kicker" style="font-size:12px;margin-bottom:6px">The ESPN startup draft · Sept. 2, 2020 · ${espn.rounds} rounds</div><div class="tw"><table><thead><tr><th class="r">Pick</th><th>ESPN team</th><th>Manager</th><th>Player</th></tr></thead><tbody>${espn.round1.map(r=>`<tr><td class="r num">1.${String(r[0]).padStart(2,'0')}</td><td>${esc(r[1])}</td><td>${esc(HANDLE(espn.owners[r[1]]))}</td><td><b>${esc(r[2])}</b> <span class="muted">${r[3]}</span></td></tr>`).join("")}</tbody></table></div>
+        <p class="note" style="margin:8px 0 0">Later bargains: ${espn.steals.map(s=>`${esc(s[2])} at ${s[0]} (${esc(HANDLE(espn.owners[s[1]]))})`).join(' · ')}.</p></div>`:''}
+      ${ev(y).length?`<div><div class="kicker" style="font-size:12px;margin-bottom:2px">What happened</div>${ev(y).map(x=>`<div class="tl-item"><div class="d">${dateS(x[0],y)}</div><div><b>${esc(x[2])}</b><span class="note">${esc(x[3])}</span></div></div>`).join("")}</div>`:''}
+      ${one?`<div class="grid2" style="gap:12px"><div><div class="kicker" style="font-size:12px;margin-bottom:6px">Rookie draft 1.01</div><b>${esc(one[1])}</b> · ${teamCell(one[2],HANDLE(one[2]),true)}<div class="note" style="margin-top:4px">${esc(one[3])}</div></div>`:'<div class="grid2" style="gap:12px">'}
+      ${yt&&yt.v>0?`<div><div class="kicker" style="font-size:12px;margin-bottom:6px">Trade of the year</div>${teamCell(yt.t[3][yt.i][0],`${new Date(yt.t[2]*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'})} · ${sgn(yt.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc((yt.t[3][yt.i][2]||'').split('; ').slice(0,4).join('; '))}${(yt.t[3][yt.i][2]||'').split('; ').length>4?'…':''}</div><button class="btn" style="margin-top:6px" data-open-trade="${yt.t[2]}">See the trade</button></div>`:''}</div>
+      ${talked.length?`<div><div class="kicker" style="font-size:12px;margin-bottom:4px">Trades the league argued about</div>${talked.map(t=>`<button class="btn" style="margin:4px 6px 0 0" data-open-trade="${t[2]}">${new Date(t[2]*1000).toLocaleDateString('en-US',{month:'short',day:'numeric'})}: ${esc(t[3].map(s=>short(s[0])).join(' ↔ '))}</button>`).join("")}</div>`:''}
+      ${h.done?`<div class="champline" style="background:var(--good-bg);border-radius:10px;padding:12px 14px"><div class="kicker" style="font-size:12px">Champion</div><div style="font-size:20px;font-weight:700;margin:2px 0">🏆 ${esc(nm(h,h.champ))} <span class="muted" style="font-size:14px;font-weight:500">${esc(HANDLE(h.champ))}</span></div>
+        <div class="note">Beat ${esc(nm(h,h.ru))} (${esc(HANDLE(h.ru))})${fin?` ${f2(fin[3])}–${f2(fin[4])}`:''} in the final${w?` as the No. ${w.seeds.indexOf(h.champ)+1} seed`:''}.${fav&&y!==2020?(fav[0]===h.champ?` Entered the playoffs as the favorite at ${pctS(fav[1])}.`:` ${esc(short(fav[0]))} was the playoff favorite at ${pctS(fav[1])}; the champion started at ${pctS(champOdds)}.`):''} <a href="#whatif">What ifs →</a></div></div>`
+      :`<div class="notice">In progress: ${esc(nm(h,STAND[0]))} leads at ${SEA.rec[STAND[0]].w}-${SEA.rec[STAND[0]].l}. <a href="#odds">Playoff odds →</a></div>`}
+      <details><summary style="cursor:pointer;font-weight:600">${y} standings</summary><div class="tw" style="margin-top:8px"><table><thead><tr><th>#</th><th>Team that year</th><th class="r">W-L</th><th class="r">PF</th><th class="r">PA</th><th>Finish</th></tr></thead><tbody>${st.map((r,i)=>{const o=r[0]; const f=h.champ===o?'🏆 Champion':h.ru===o?'Runner-up':h.third===o?'Third':(h.po||[]).includes(o)?'Playoffs':''; return `<tr><td class="num muted">${i+1}</td><td>${teamCell(o,`${nm(h,o)} · ${HANDLE(o)}`)}</td><td class="r num">${r[1]}-${r[2]}</td><td class="r num">${f1(r[3])}</td><td class="r num muted">${f1(r[4])}</td><td>${f}</td></tr>`}).join("")}</tbody></table></div>${y===2020?'<p class="note">2020 covers only the weeks played on Sleeper.</p>':''}</details>
+    </section>`; };
   const at=AT.map((a,i)=>({i,...a})).sort((a,b)=>b.titles-a.titles||b.finals-a.finals||(b.w/(b.w+b.l))-(a.w/(a.w+a.l))); const rc=S.records; const order=[...Array(S.at.length).keys()];
-  const nm=(h,i)=>{const n=h.names[i]; return n&&!BADNAME.test(n)?n:HANDLE(i);};
-  el.innerHTML=`<div class="h-row"><div><div class="kicker">${done.length} completed seasons</div><h2>History</h2></div></div>
-  <div class="champs">${done.map(h=>`<div class="champ"><span class="yr">${h.s}</span><span class="who">${esc(nm(h,h.champ))}</span><span class="note">${esc(HANDLE(h.champ))} · beat ${esc(HANDLE(h.ru))} in the final</span></div>`).join("")}</div>
-  ${timelineCard()}
+  el.innerHTML=`<div class="h-row"><div><div class="kicker">2020 to today</div><h2>The SPDL Story</h2></div></div>
+  <p class="lead">Every season in order: how the league changed, the rookie draft, the trades everyone talked about and who won it all. The record book is at the bottom.</p>
+  <nav class="tl-chips" aria-label="Jump to season" style="position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0">${seasons.map(h=>`<button data-jump="y${h.s}">${h.s}</button>`).join("")}<button data-jump="records">Record book</button></nav>
+  ${seasons.map(chapter).join("")}
+  <h2 id="records" style="margin-top:12px">Record book</h2>
   <div class="card tw"><h3 style="margin-bottom:8px">All-time standings</h3><table><thead><tr><th>Manager</th><th class="r">Seasons</th><th class="r">W-L</th><th class="r">Win %</th><th class="r">Points</th><th class="r">Playoffs</th><th class="r">Finals</th><th class="r">Titles</th></tr></thead><tbody>
-    ${at.map(a=>`<tr class="${a.i===MY_TEAM?'me':''}"><td>${teamCell(a.i,HANDLE(a.i))}</td><td class="r num">${a.seasons}</td><td class="r num">${a.w}-${a.l}</td><td class="r num">${(a.w/(a.w+a.l)*100).toFixed(1)}%</td><td class="r num">${f0(a.pf)}</td><td class="r num">${a.po}</td><td class="r num">${a.finals}</td><td class="r num"><b>${a.titles?'🏆'.repeat(a.titles):'—'}</b></td></tr>`).join("")}</tbody></table>
-    <p class="note">Covers 2020 through Week ${C.lastW} of ${C.season}. Playoff, finals and title counts are completed seasons only.</p></div>
-  <div class="card"><div class="h-row" style="margin-bottom:8px"><h3>Season by season</h3><label>Season <select id="hs">${S.hist.map(h=>`<option>${h.s}</option>`).join("")}</select></label></div><div class="tw" id="hs-t"></div></div>
+    ${at.map(a=>`<tr class="${a.i===MY_TEAM?'me':''}"><td>${teamCell(a.i,HANDLE(a.i))}</td><td class="r num">${a.seasons}</td><td class="r num">${a.w}-${a.l}</td><td class="r num">${(a.w/(a.w+a.l)*100).toFixed(1)}%</td><td class="r num">${f0(a.pf)}</td><td class="r num">${a.po}</td><td class="r num">${a.finals}</td><td class="r num" data-v="${a.titles}"><b>${a.titles?'🏆'.repeat(a.titles):'—'}</b></td></tr>`).join("")}</tbody></table>
+    <p class="note">Sleeper seasons, 2020 through Week ${C.lastW} of ${C.season}. Playoff, finals and title counts are completed seasons only.</p></div>
   <div class="card"><h3 style="margin-bottom:6px">Head-to-head</h3><p class="note" style="margin:0 0 8px">All-time record of the row manager against the column manager, regular season and playoffs.</p><div class="tw"><table class="h2h"><thead><tr><th></th>${order.map(j=>`<th title="${esc(HANDLE(j))}">${abbr(j)}</th>`).join("")}</tr></thead><tbody>
     ${order.map(i=>`<tr><th style="text-align:left">${esc(HANDLE(i))}</th>${order.map(k=>{ if(i===k) return '<td class="self"></td>'; const [w,l]=H2H[i][k]; if(!w&&!l) return '<td class="muted">—</td>'; const p=w/(w+l); const c=p>=0.5?`color-mix(in srgb, var(--good) ${Math.round((p-0.5)*120)}%, transparent)`:`color-mix(in srgb, var(--bad) ${Math.round((0.5-p)*120)}%, transparent)`; return `<td style="background:${c}">${w}-${l}</td>`}).join("")}</tr>`).join("")}</tbody></table></div></div>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:8px">Highest scores</h3><table><tbody>${rc.high.map(([o,s,w,p])=>`<tr><td>${teamCell(o,HANDLE(o))}</td><td class="muted">${s} · Wk ${w}</td><td class="r num"><b>${f2(p)}</b></td></tr>`).join("")}</tbody></table></div>
   <div class="card"><h3 style="margin-bottom:8px">Closest games</h3><table><tbody>${rc.close.map(([wn,ln,s,w,m,ws,ls])=>`<tr><td>${esc(HANDLE(wn))} <span class="muted">over</span> ${esc(HANDLE(ln))}</td><td class="muted">${s} · Wk ${w}</td><td class="r num">${f2(ws)}–${f2(ls)}</td><td class="r num"><b>${f2(m)}</b></td></tr>`).join("")}</tbody></table></div>
   <div class="card"><h3 style="margin-bottom:8px">Biggest blowouts</h3><table><tbody>${rc.blow.map(([wn,ln,s,w,m,ws,ls])=>`<tr><td>${esc(HANDLE(wn))} <span class="muted">over</span> ${esc(HANDLE(ln))}</td><td class="muted">${s} · Wk ${w}</td><td class="r num">${f2(ws)}–${f2(ls)}</td><td class="r num"><b>${f1(m)}</b></td></tr>`).join("")}</tbody></table></div>
   <div class="card"><h3 style="margin-bottom:8px">Most points left on the bench</h3><table><tbody>${rc.bench.map(([o,s,w,p])=>`<tr><td>${teamCell(o,HANDLE(o))}</td><td class="muted">${s} · Wk ${w}</td><td class="r num"><b>${f1(p)}</b></td></tr>`).join("")}</tbody></table></div></div>`;
-  const hs=$('hs'); const drawS=()=>{ const h=S.hist.find(x=>x.s==hs.value); const st=[...h.st].sort((a,b)=>b[1]-a[1]||b[3]-a[3]);
-    $('hs-t').innerHTML=`<table><thead><tr><th>#</th><th>Team that year</th><th class="r">W-L</th><th class="r">PF</th><th class="r">PA</th><th>Finish</th></tr></thead><tbody>${st.map((r,i)=>{const o=r[0]; const fin=h.champ===o?'🏆 Champion':h.ru===o?'Runner-up':h.third===o?'Third':(h.po||[]).includes(o)?'Playoffs':''; return `<tr><td class="num muted">${i+1}</td><td>${teamCell(o,`${nm(h,o)} · ${HANDLE(o)}`)}</td><td class="r num">${r[1]}-${r[2]}</td><td class="r num">${f1(r[3])}</td><td class="r num muted">${f1(r[4])}</td><td>${fin}</td></tr>`}).join("")}</tbody></table>${h.done?'':'<p class="note">Season in progress. See This Week for live standings.</p>'}`; };
-  hs.onchange=drawS; drawS(); };
+  el.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{ const t=document.getElementById(b.dataset.jump); if(t) t.scrollIntoView({behavior:'smooth',block:'start'}); }); };
+let PENDING_TRADE=null;
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-open-trade]'); if(!b) return; PENDING_TRADE=+b.dataset.openTrade; TF={season:"all",team:"all",pos:"all",fmt:"all",sort:"new",q:"",n:999}; if(current()==='trades') show(); else location.hash='trades'; });
+
 
 
 /* ---------------- DRAFTS ---------------- */
