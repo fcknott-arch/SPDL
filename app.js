@@ -69,12 +69,44 @@ async function live(){
 }
 
 /* ---------------- dynasty values ---------------- */
-function ktcValue(name){ if(!KTCV) return null; return KTCV.map[norm(name)]||0; }
-function itemValue(it){ // "Name (POS)", "2025 R1 → Name (POS)", "2028 R2 (handle)"
-  let m=it.match(/^\d{4} R\d → (.+) \([A-Z]+\)$/); if(m) return ktcValue(m[1]);
-  m=it.match(/^(\d{4}) R(\d) \(/); if(m){ const y=+m[1], r=+m[2]; return y>C.season? (KTCV.picks[`${y} Mid ${['1st','2nd','3rd','4th'][r-1]}`]||0) : 0; }
-  m=it.match(/^(.+) \([A-Z?]+\)$/); if(m) return ktcValue(m[1]);
+function ktcValue(name,oneQB){ if(!KTCV) return null; return (oneQB?KTCV.map1:KTCV.map)[norm(name)]||0; }
+function itemValue(it,oneQB){ // "Name (POS)", "2025 R1 → Name (POS)", "2028 R2 (handle)"
+  let m=it.match(/^\d{4} R\d → (.+) \([A-Z]+\)$/); if(m) return ktcValue(m[1],oneQB);
+  m=it.match(/^(\d{4}) R(\d) \(/); if(m){ const y=+m[1], r=+m[2]; return y>C.season? ((oneQB?KTCV.picks1:KTCV.picks)[`${y} Mid ${['1st','2nd','3rd','4th'][r-1]}`]||0) : 0; }
+  m=it.match(/^(.+) \([A-Z?]+\)$/); if(m) return ktcValue(m[1],oneQB);
   return 0; }
+/* KeepTradeCut's trade-calculator "value adjustment" (adjustPackageNew in KTC's site.min.js, ported as-is).
+   A side getting the single best asset is credited for consolidation, so a pile of mid pieces doesn't beat a star. */
+const SF_START=2022;
+function ktcAdjust(A,B,top){
+  const T=(top||9999)+100, M=Math.max(A[0]||0,B[0]||0, 1);
+  const pv=v=>(.1*Math.pow(v/10099,1.4)+.7*Math.pow(v/(1.05*M),1.25)+.2)*v;
+  const solve=e=>{ let x=5*e||1; for(let k=0;k<20;k++){ const f=(.1*Math.pow(x/T,1.4)+.7*Math.pow(x/(1.05*M),1.25)+.2)*x-e, d=.24*Math.pow(x,1.4)/Math.pow(T,1.4)+1.575*Math.pow(x,1.25)/(Math.pow(1.05,1.25)*Math.pow(M,1.25))+.2; const nx=x-f/d; if(Math.abs(nx-x)<1e-8) return Math.round(nx); x=nx; } return Math.round(x); };
+  const eq=(a,b)=>{ a=Math.max(0,a); b=Math.max(0,b); const n=Math.min(100,Math.abs(a-b)/((a+b)||1)*100); return !(Math.round(10*n)/10>5); };
+  const tA=A.reduce((s,v)=>s+v,0), tB=B.reduce((s,v)=>s+v,0); if(!A.length||!B.length) return [0,0];
+  const e=A.reduce((s,v)=>s+pv(v),0), a=B.reduce((s,v)=>s+pv(v),0), c=Math.floor(Math.abs(e-a));
+  let adj1=0, adj2=0, b, v;
+  const pickG=()=> tA<tB?1:(tB<tA?2:-1);
+  if(eq(tA,tB)&&eq(e,a)){
+    if(e>a){ v=solve(c); b=tB+v-tA; if(b>0) adj1=b; else adj2=-b; }
+    else if(a>e){ v=solve(c); b=tA+v-tB; if(b>0) adj2=b; else adj1=-b; }
+  } else if(e/tA>a/tB){
+    if(e>a){ v=solve(c); b=tB+v-tA; if(b>0) adj1=b; else adj2=Math.abs(b); }
+    else { const g=pickG(), w=solve(Math.abs(e-a)); if(w>0&&g>0){
+      if(g===2){ adj2=w-(tA-tB); }
+      else { const t=w-(tB-tA); if(t>0){ if(t<=10000) adj2=t; } else adj1=-t; } } }
+  } else {
+    if(a>e){ v=solve(c); b=tA+v-tB; if(b>0) adj2=b; else adj1=Math.abs(b); }
+    else { const g=pickG(), w=solve(Math.abs(e-a)); if(w>0&&g>0){
+      if(g===1){ adj1=w-(tB-tA); }
+      else { const t=w-(tA-tB); if(t>0){ if(t<=10000) adj1=t; } else adj2=-t; } } }
+  }
+  return [adj1,adj2]; }
+function gradeTrade(sides,season){ // sides: [[owner, [values...], items]]
+  const oneQB=season<SF_START, top=oneQB?KTCV.top1:KTCV.top;
+  return sides.map((s,i)=>{ const mine=[...s[1]].sort((x,y)=>y-x), rest=sides.filter((_,j)=>j!==i).flatMap(x=>x[1]).sort((x,y)=>y-x);
+    const [aMine,aRest]=ktcAdjust(mine,rest,top); const tm=mine.reduce((x,y)=>x+y,0), tr=rest.reduce((x,y)=>x+y,0);
+    const n=sides.length-1; return [s[0], tm, s[2], (tm+aMine)-(tr+aRest)/n, aMine]; }); }
 function teamValues(){
   if(!(KTCV&&PLAYERS&&S.rosters)) return S.ktc.map(k=>({...k,value:k.adj,src:"snap"}));
   const pickV=(y,r)=>KTCV.picks[`${y} Mid ${['1st','2nd','3rd','4th'][r-1]}`]||0;
@@ -119,10 +151,18 @@ function simulate(forced,NS,draft){ NS=NS||8000; const out=Array.from({length:N}
       const r1a=play(sd[3],sd[4]), r1b=play(sd[2],sd[5]); const r2a=play(sd[0],r1a[0]), r2b=play(sd[1],r1b[0]); const fin=play(r2a[0],r2b[0]);
       [...idx.slice(PT).sort(byMx),...[r1a[1],r1b[1]].sort(byMx),...[r2a[1],r2b[1]].sort(byMx),fin[1],fin[0]].forEach((t,k)=>out[t].slots[k]++); } }
   out.forEach(o=>{o.po/=NS;o.bye/=NS;o.top/=NS;o.last/=NS;o.wins/=NS;o.slots=o.slots.map(x=>x/NS);o.avg=o.slots.reduce((a,p,k)=>a+p*(k+1),0)}); return out; }
-function tradeNet(t){ const sides=t[3]; return sides.map((s,i)=>s[1]-mean(sides.filter((_,j)=>j!==i).map(x=>x[1]))); }
+function tradeNet(t){ const sides=t[3]; if(sides[0].length>3) return sides.map(s=>s[3]); return sides.map((s,i)=>s[1]-mean(sides.filter((_,j)=>j!==i).map(x=>x[1]))); }
+
+let AT=null, H2H=null;
+function liveAllTime(){ // snapshot covers through S.atThrough (Week 7 of 2026); add live regular-season weeks after it
+  const thru=S.atThrough||7; AT=S.at.map(a=>({...a})); H2H=S.h2h.map(r=>r.map(x=>[...x]));
+  if(+C.season!==2026) return;
+  SEA.games.filter(g=>g.w>thru).forEach(g=>{ const A=AT[g.a],B=AT[g.b]; A.pf+=g.as; B.pf+=g.bs;
+    if(g.as>g.bs){A.w++;B.l++;H2H[g.a][g.b][0]++;H2H[g.b][g.a][1]++;} else if(g.bs>g.as){B.w++;A.l++;H2H[g.b][g.a][0]++;H2H[g.a][g.b][1]++;} });
+  SEA.rec.forEach((r,o)=>r.weeks.forEach(([w,p,op])=>{ if(w>thru&&op!=null){ AT[o].pts+=p; AT[o].opt+=op; } })); }
 function compute(){
   C=S.cur; REG=C.pws-1; PT=C.pteams;
-  SEA=season(); STAND=[...Array(N).keys()].sort((a,b)=>(SEA.rec[b].w+SEA.rec[b].t/2)-(SEA.rec[a].w+SEA.rec[a].t/2)||SEA.rec[b].pf-SEA.rec[a].pf);
+  SEA=season(); liveAllTime(); STAND=[...Array(N).keys()].sort((a,b)=>(SEA.rec[b].w+SEA.rec[b].t/2)-(SEA.rec[a].w+SEA.rec[a].t/2)||SEA.rec[b].pf-SEA.rec[a].pf);
   REMAIN=[]; for(let w=C.lastW+1; w<=REG; w++){ const wk=C.weeks[w-1]; if(!wk) continue; const by={}; wk.forEach(([o,p,op,m])=>{(by[m]=by[m]||[]).push(o)}); Object.entries(by).forEach(([m,pr])=>{ if(pr.length===2) REMAIN.push({w,m:+m,a:pr[0],b:pr[1],key:w+"-"+m}); }); }
   NEXTW=C.lastW+1<=REG?C.lastW+1:null;
   const all=SEA.rec.flatMap(r=>r.pts); const lm=mean(all)||120; let ss=0,n=0; SEA.rec.forEach(r=>{const mm=mean(r.pts); r.pts.forEach(x=>{ss+=(x-mm)**2;n++})});
@@ -134,11 +174,15 @@ function compute(){
   const posRank=pos=>{const arr=[...Array(N).keys()].sort((a,b)=>KT[b].pos[pos]-KT[a].pos[pos]); const r={}; arr.forEach((t,i)=>r[t]=i+1); return r;};
   PR={QB:posRank('QB'),RB:posRank('RB'),WR:posRank('WR'),TE:posRank('TE'),PICK:posRank('PICK')};
   const joke=new Set(S.jokeTs);
-  TRADES=S.trades.filter(t=>t[3].length>=2&&!joke.has(t[2])).map(t=> KTCV ? [t[0],t[1],t[2],t[3].map(s=>[s[0],s[2]?s[2].split('; ').reduce((a,it)=>a+itemValue(it),0):0,s[2]])] : t);
+  TRADES=S.trades.filter(t=>t[3].length>=2&&!joke.has(t[2])).map(t=> KTCV ? [t[0],t[1],t[2],gradeTrade(t[3].map(s=>[s[0],s[2]?s[2].split('; ').map(it=>itemValue(it,t[0]<SF_START)):[],s[2]]),t[0])] : t);
 }
-function windowOf(i){ const k=KT[i]; if(k.rank<=5&&k.age>=27.5) return 'All-in'; if(k.rank<=4) return 'Contend'; if(k.rank>=8&&PR.PICK[i]<=3) return 'Rebuild'; return 'Retool'; }
+function windowOf(i){ // now = this season's playoff odds; later = KTC roster value rank and age
+  const k=KT[i], po=BASE&&BASE[i]?BASE[i].po:0.5;
+  if(po>=0.75) return (k.rank<=5&&k.age<27.5)?'Contend':'All-in';
+  if(po>=0.25) return 'Bubble';
+  return k.rank<=5?'Retool':'Rebuild'; }
 const pillOf=w=>`<span class="pill p-${w.toLowerCase().replace(/[^a-z]/g,'')}">${w}</span>`;
-const WCOL={"All-in":"var(--turf)","Contend":"var(--blue)","Retool":"var(--amber-hi)","Rebuild":"var(--bad)"};
+const WCOL={"All-in":"var(--turf)","Contend":"var(--blue)","Bubble":"var(--muted)","Retool":"var(--amber-hi)","Rebuild":"var(--bad)"};
 function bar(p,cls){const on=p>=0.7&&cls!=='amber';return `<span class="pct ${cls||''}"><i style="width:${Math.max(0,Math.min(100,p*100))}%"></i><em style="${on?'color:var(--turf-ink)':''}">${pctS(p)}</em></span>`;}
 function lockTime(w){ return S.locks[w]||Infinity; }
 
@@ -202,7 +246,7 @@ R.luck=function(el){ const rec=SEA.rec;
   const rows=[...Array(N).keys()].map(t=>{const r=rec[t]; const apg=r.ap[0]+r.ap[1]; const exp=apg?r.ap[0]/apg*(r.w+r.l+r.t):0; return {t,r,exp,luck:(r.w+r.t/2)-exp,eff:r.opt?r.act/r.opt:null,lost:r.opt-r.act};});
   const byLuck=[...rows].sort((a,b)=>b.luck-a.luck); const maxL=Math.max(...rows.map(x=>Math.abs(x.luck)),1);
   const worst=[]; rec.forEach((r,t)=>r.weeks.forEach(([w,p,op])=>{if(op!=null)worst.push([t,w,op-p,p,op])})); worst.sort((a,b)=>b[2]-a[2]);
-  const at=S.at.map((a,i)=>({i,eff:a.opt?a.pts/a.opt:0,a})).filter(x=>x.i<N).sort((a,b)=>b.eff-a.eff);
+  const at=AT.map((a,i)=>({i,eff:a.opt?a.pts/a.opt:0,a})).filter(x=>x.i<N).sort((a,b)=>b.eff-a.eff);
   el.innerHTML=`<div class="h-row"><div><div class="kicker">Weeks 1–${C.lastW}</div><h2>Luck &amp; Lineups</h2></div></div>
   <p class="lead">Expected wins treat every week as if you played all nine other teams. The gap between that and your real record is schedule luck. Lineup efficiency compares the points you started with the best lineup you could have set.</p>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Schedule luck</h3>
@@ -214,7 +258,7 @@ R.luck=function(el){ const rec=SEA.rec;
   <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Worst lineup calls this season</h3><div class="tw"><table><thead><tr><th>Team</th><th class="r">Week</th><th class="r">Scored</th><th class="r">Best possible</th><th class="r">Left</th></tr></thead><tbody>
     ${worst.slice(0,8).map(([t,w,d,p,op])=>`<tr><td>${teamCell(t)}</td><td class="r num">${w}</td><td class="r num">${f2(p)}</td><td class="r num">${f2(op)}</td><td class="r num down">${f1(d)}</td></tr>`).join("")}</tbody></table></div></div>
   <div class="card"><h3 style="margin-bottom:10px">All-time lineup efficiency</h3><div class="tw"><table><thead><tr><th>Manager</th><th class="r">Seasons</th><th class="r">Efficiency</th></tr></thead><tbody>
-    ${at.map(x=>`<tr><td>${teamCell(x.i,HANDLE(x.i))}</td><td class="r num">${x.a.seasons}</td><td class="r">${bar(x.eff,'amber')}</td></tr>`).join("")}</tbody></table></div><p class="note">Regular-season weeks, 2020 through Oct. 2026.</p></div></div>`; };
+    ${at.map(x=>`<tr><td>${teamCell(x.i,HANDLE(x.i))}</td><td class="r num">${x.a.seasons}</td><td class="r">${bar(x.eff,'amber')}</td></tr>`).join("")}</tbody></table></div><p class="note">Regular-season weeks, 2020 through Week ${C.lastW} of ${C.season}.</p></div></div>`; };
 
 /* ---------------- TRADES ---------------- */
 let TF={season:"all",team:"all",n:30};
@@ -226,7 +270,7 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   el.innerHTML=`<div class="h-row"><div><div class="kicker">${TRADES.length} trades since 2020</div><h2>Trade Ledger</h2></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><label>Season<select id="tf-s"><option value="all">All seasons</option>${seasons.map(s=>`<option ${TF.season==s?'selected':''}>${s}</option>`).join("")}</select></label>
     <label>Team<select id="tf-t"><option value="all">All teams</option>${[...Array(S.owners.length).keys()].map(i=>`<option value="${i}" ${TF.team==i?'selected':''}>${esc(NAME(i))}</option>`).join("")}</select></label></div></div>
-  <p class="lead">Every trade is graded with today's KeepTradeCut superflex values, so the ledger shows how deals have aged. Unmade picks count at mid-round value; drafted picks count as the player taken. Trades that were traded right back are left out and listed at the bottom.</p>
+  <p class="lead">Every trade is graded with today's KeepTradeCut values, so the ledger shows how deals have aged. Trades from 2020–21, before the league went superflex, use KTC's 1QB values. Each trade gets KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. Unmade picks count at mid-round value; drafted picks count as the player taken. Trades that were traded right back are left out and listed at the bottom.</p>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Best traders ${TF.season==='all'?'all-time':TF.season}</h3><div class="tw"><table><thead><tr><th>Manager</th><th class="r">Trades</th><th class="r">Won</th><th class="r">Net KTC</th></tr></thead><tbody>
     ${board.map(i=>`<tr class="${i===MY_TEAM?'me':''}"><td>${teamCell(i,HANDLE(i))}</td><td class="r num">${tot[i].n}</td><td class="r num">${tot[i].won}</td><td class="r num ${tot[i].net>=0?'up':'down'}"><b>${sgn(tot[i].net)}</b></td></tr>`).join("")}</tbody></table></div></div>
   <div class="card"><h3 style="margin-bottom:10px">Biggest heists</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">${teamCell(h.t[3][h.i][0],`${h.t[0]} · Week ${h.t[1]} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></div>`}).join("")}</div></div>
@@ -238,16 +282,16 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   const more=$('tl-more'); if(more) more.onclick=()=>{TF.n+=30;R.trades(el)}; };
 function tradeCard(t){ const nets=tradeNet(t); const best=Math.max(...nets); const d=new Date(t[2]*1000);
   return `<div class="card trade"><div class="meta"><span>${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} · ${t[0]} season${t[1]>1?`, Week ${t[1]}`:''}</span><span>${t[3].length}-team trade</span></div>
-  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>KTC today <b>${f0(s[1])}</b></span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div></div>`; }
+  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>KTC${t[0]<SF_START?' (1QB)':''} <b>${f0(s[1])}</b>${s[4]>0?` <span class="muted">+${f0(s[4])} adj.</span>`:''}</span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div></div>`; }
 
 /* ---------------- DYNASTY ---------------- */
 R.dynasty=function(el){ const rec=SEA.rec; const ppg=t=>rec[t].pts.length?mean(rec[t].pts):0; const rows=[...S.tv].sort((a,b)=>a.rank-b.rank);
   const rk=n=>`<span class="num ${n<=3?'up':n>=8?'down':''}" style="font-weight:600">${n}</span>`; const f27=S.fut[C.season+1]||S.fut[String(C.season+1)];
   el.innerHTML=`<div class="h-row"><div><div class="kicker">KeepTradeCut superflex values</div><h2>Dynasty</h2></div></div>
-  <p class="lead">${rows[0].src==='live'?'Team value weights each roster\'s best lineup fully, depth at a quarter and picks at 60%, using current KTC values.':'Team value is KTC\'s adjusted total for each roster plus its picks.'} Positional columns rank each room against the league (1 is best). Windows: All-in = top-five value with an older roster, Contend = top four, Rebuild = bottom three with a top-three pick haul, Retool = everyone else.</p>
+  <p class="lead">${rows[0].src==='live'?'Team value weights each roster\'s best lineup fully, depth at a quarter and picks at 60%, using current KTC values.':'Team value is KTC\'s adjusted total for each roster plus its picks.'} Positional columns rank each room against the league (1 is best). Windows combine this season and the long run: <b>Contend</b> = 75%+ playoff odds with a top-five, young roster; <b>All-in</b> = 75%+ playoff odds but an older or thinner roster; <b>Bubble</b> = 25–75% playoff odds; <b>Retool</b> = under 25% odds but a top-five roster by value; <b>Rebuild</b> = under 25% odds and a bottom-half roster.</p>
   <div class="card tw"><table><thead><tr><th>#</th><th>Team</th><th>Window</th><th class="r">Value</th><th class="r">QB</th><th class="r">RB</th><th class="r">WR</th><th class="r">TE</th><th class="r">Picks</th><th class="r">Avg age</th><th>Young core</th></tr></thead><tbody>
   ${rows.map(k=>`<tr class="${k.o===MY_TEAM?'me':''}"><td class="num muted">${k.rank}</td><td class="tc">${teamCell(k.o)}</td><td>${pillOf(windowOf(k.o))}</td><td class="r num"><b>${f0(k.value)}</b></td><td class="r">${rk(PR.QB[k.o])}</td><td class="r">${rk(PR.RB[k.o])}</td><td class="r">${rk(PR.WR[k.o])}</td><td class="r">${rk(PR.TE[k.o])}</td><td class="r">${rk(PR.PICK[k.o])}</td><td class="r num">${(+k.age).toFixed(1)}</td><td style="font-size:13px;min-width:220px">${k.young.map(y=>`<span class="chip">${esc(y[0])} <span class="muted">${y[1]} ${y[2]}</span></span>`).join("")}</td></tr>`).join("")}</tbody></table></div>
-  <div class="card"><h3>Now vs. later</h3><p class="note" style="margin:4px 0 8px">${C.season} points per game against team value. Top right is strong now and later.</p><div class="lg">${['All-in','Contend','Retool','Rebuild'].map(w=>`<span><i style="background:${WCOL[w]}"></i>${w}</span>`).join("")}</div>${scatter(ppg)}</div>
+  <div class="card"><h3>Now vs. later</h3><p class="note" style="margin:4px 0 8px">${C.season} points per game against team value. Top right is strong now and later.</p><div class="lg">${['Contend','All-in','Bubble','Retool','Rebuild'].map(w=>`<span><i style="background:${WCOL[w]}"></i>${w}</span>`).join("")}</div>${scatter(ppg)}</div>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:8px">Pick ownership</h3><p class="note" style="margin:0 0 8px">First- and second-round picks each team holds. Amber chips came from another team.</p><div class="tw"><table><thead><tr><th>Team</th>${Object.keys(S.fut).map(y=>`<th>${y}</th>`).join("")}</tr></thead><tbody>
     ${[...Array(N).keys()].sort((a,b)=>KT[a].rank-KT[b].rank).map(t=>`<tr class="${t===MY_TEAM?'me':''}"><td><span class="tshort"><span class="badge">${abbr(t)}</span>${esc(short(t))}</span></td>${Object.keys(S.fut).map(y=>`<td style="min-width:120px">${picksHeld(t,y)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>
   <div class="card"><h3 style="margin-bottom:8px">Projected ${C.season+1} order</h3><p class="note" style="margin:0 0 8px">SPDL rules: the four non-playoff teams pick 1–4 by lowest max PF, then first-round playoff losers, then semifinal losers (each pair by max PF), then the runner-up, then the champion. Simulated through the playoffs 12,000 times.</p><div class="tw"><table><thead><tr><th>Proj.</th><th>Original team</th><th class="r">Avg slot</th><th class="r">Top 4</th><th class="r">1.01</th><th>1st owner</th><th>2nd owner</th></tr></thead><tbody>
@@ -271,16 +315,16 @@ function scatter(ppg){ const W=720,H=360,l=60,r=700,tp=20,b=310; const xs=[...Ar
 /* ---------------- HISTORY ---------------- */
 const BADNAME=/fag|fuck/i;
 R.history=function(el){ const done=S.hist.filter(h=>h.done).sort((a,b)=>b.s-a.s);
-  const at=S.at.map((a,i)=>({i,...a})).sort((a,b)=>b.titles-a.titles||b.finals-a.finals||(b.w/(b.w+b.l))-(a.w/(a.w+a.l))); const rc=S.records; const order=[...Array(S.at.length).keys()];
+  const at=AT.map((a,i)=>({i,...a})).sort((a,b)=>b.titles-a.titles||b.finals-a.finals||(b.w/(b.w+b.l))-(a.w/(a.w+a.l))); const rc=S.records; const order=[...Array(S.at.length).keys()];
   const nm=(h,i)=>{const n=h.names[i]; return n&&!BADNAME.test(n)?n:HANDLE(i);};
   el.innerHTML=`<div class="h-row"><div><div class="kicker">${done.length} completed seasons</div><h2>History</h2></div></div>
   <div class="champs">${done.map(h=>`<div class="champ"><span class="yr">${h.s}</span><span class="who">${esc(nm(h,h.champ))}</span><span class="note">${esc(HANDLE(h.champ))} · beat ${esc(HANDLE(h.ru))} in the final</span></div>`).join("")}</div>
   <div class="card tw"><h3 style="margin-bottom:8px">All-time standings</h3><table><thead><tr><th>Manager</th><th class="r">Seasons</th><th class="r">W-L</th><th class="r">Win %</th><th class="r">Points</th><th class="r">Playoffs</th><th class="r">Finals</th><th class="r">Titles</th></tr></thead><tbody>
     ${at.map(a=>`<tr class="${a.i===MY_TEAM?'me':''}"><td>${teamCell(a.i,HANDLE(a.i))}</td><td class="r num">${a.seasons}</td><td class="r num">${a.w}-${a.l}</td><td class="r num">${(a.w/(a.w+a.l)*100).toFixed(1)}%</td><td class="r num">${f0(a.pf)}</td><td class="r num">${a.po}</td><td class="r num">${a.finals}</td><td class="r num"><b>${a.titles?'🏆'.repeat(a.titles):'—'}</b></td></tr>`).join("")}</tbody></table>
-    <p class="note">Covers 2020 through Week 7 of 2026. Playoff, finals and title counts are completed seasons only.</p></div>
+    <p class="note">Covers 2020 through Week ${C.lastW} of ${C.season}. Playoff, finals and title counts are completed seasons only.</p></div>
   <div class="card"><div class="h-row" style="margin-bottom:8px"><h3>Season by season</h3><label>Season <select id="hs">${S.hist.map(h=>`<option>${h.s}</option>`).join("")}</select></label></div><div class="tw" id="hs-t"></div></div>
   <div class="card"><h3 style="margin-bottom:6px">Head-to-head</h3><p class="note" style="margin:0 0 8px">All-time record of the row manager against the column manager, regular season and playoffs.</p><div class="tw"><table class="h2h"><thead><tr><th></th>${order.map(j=>`<th title="${esc(HANDLE(j))}">${abbr(j)}</th>`).join("")}</tr></thead><tbody>
-    ${order.map(i=>`<tr><th style="text-align:left">${esc(HANDLE(i))}</th>${order.map(k=>{ if(i===k) return '<td class="self"></td>'; const [w,l]=S.h2h[i][k]; if(!w&&!l) return '<td class="muted">—</td>'; const p=w/(w+l); const c=p>=0.5?`color-mix(in srgb, var(--good) ${Math.round((p-0.5)*120)}%, transparent)`:`color-mix(in srgb, var(--bad) ${Math.round((0.5-p)*120)}%, transparent)`; return `<td style="background:${c}">${w}-${l}</td>`}).join("")}</tr>`).join("")}</tbody></table></div></div>
+    ${order.map(i=>`<tr><th style="text-align:left">${esc(HANDLE(i))}</th>${order.map(k=>{ if(i===k) return '<td class="self"></td>'; const [w,l]=H2H[i][k]; if(!w&&!l) return '<td class="muted">—</td>'; const p=w/(w+l); const c=p>=0.5?`color-mix(in srgb, var(--good) ${Math.round((p-0.5)*120)}%, transparent)`:`color-mix(in srgb, var(--bad) ${Math.round((0.5-p)*120)}%, transparent)`; return `<td style="background:${c}">${w}-${l}</td>`}).join("")}</tr>`).join("")}</tbody></table></div></div>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:8px">Highest scores</h3><table><tbody>${rc.high.map(([o,s,w,p])=>`<tr><td>${teamCell(o,HANDLE(o))}</td><td class="muted">${s} · Wk ${w}</td><td class="r num"><b>${f2(p)}</b></td></tr>`).join("")}</tbody></table></div>
   <div class="card"><h3 style="margin-bottom:8px">Closest games</h3><table><tbody>${rc.close.map(([wn,ln,s,w,m,ws,ls])=>`<tr><td>${esc(HANDLE(wn))} <span class="muted">over</span> ${esc(HANDLE(ln))}</td><td class="muted">${s} · Wk ${w}</td><td class="r num">${f2(ws)}–${f2(ls)}</td><td class="r num"><b>${f2(m)}</b></td></tr>`).join("")}</tbody></table></div>
   <div class="card"><h3 style="margin-bottom:8px">Biggest blowouts</h3><table><tbody>${rc.blow.map(([wn,ln,s,w,m,ws,ls])=>`<tr><td>${esc(HANDLE(wn))} <span class="muted">over</span> ${esc(HANDLE(ln))}</td><td class="muted">${s} · Wk ${w}</td><td class="r num">${f2(ws)}–${f2(ls)}</td><td class="r num"><b>${f1(m)}</b></td></tr>`).join("")}</tbody></table></div>
@@ -441,7 +485,7 @@ R.commish=function(el){
 (async function boot(){
   try{ S=await j('data/static.json'); }catch(e){ $('main').innerHTML='<div class="notice">Couldn\'t load league data. Refresh to try again.</div>'; return; }
   const [kt,pl]=await Promise.all([j('data/ktc.json').catch(()=>null), j('data/players.json').catch(()=>null)]);
-  if(kt&&kt.players){ KTCV={gen:kt.gen,picks:kt.picks||{},map:{},byName:{}}; kt.players.forEach(p=>{ const k=norm(p[0]); KTCV.map[k]=Math.max(KTCV.map[k]||0,p[4]); KTCV.byName[k]=[p[4],p[3]]; }); }
+  if(kt&&kt.players){ KTCV={gen:kt.gen,picks:kt.picks||{},picks1:kt.picks1qb||kt.picks||{},map:{},map1:{},byName:{},top:0,top1:0}; kt.players.forEach(p=>{ const k=norm(p[0]), v1=p[5]!=null?p[5]:p[4]; KTCV.map[k]=Math.max(KTCV.map[k]||0,p[4]); KTCV.map1[k]=Math.max(KTCV.map1[k]||0,v1); KTCV.byName[k]=[p[4],p[3]]; KTCV.top=Math.max(KTCV.top,p[4]); KTCV.top1=Math.max(KTCV.top1,v1); }); }
   if(pl&&pl.players) PLAYERS=pl.players;
   compute(); header(); show(); initFirebase();
   try{ await live(); compute(); header(); show(); }catch(e){ console.warn(e); LIVE_ERR=e.message; header(); }
