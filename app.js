@@ -77,7 +77,10 @@ function itemValue(it,oneQB){ // "Name (POS)", "2025 R1 → Name (POS)", "2028 R
   return 0; }
 /* KeepTradeCut's trade-calculator "value adjustment" (adjustPackageNew in KTC's site.min.js, ported as-is).
    A side getting the single best asset is credited for consolidation, so a pile of mid pieces doesn't beat a star. */
-const SF_START=2022;
+// 2020 season and the 2021 rookie draft (done May 3, 2021) were 1QB; a superflex spot was added before the 2021 season (Week 1: Sept. 9, 2021).
+const SF_DRAFT_END=Date.UTC(2021,4,3,14)/1000, SF_SEASON=Date.UTC(2021,8,9)/1000;
+let SF_TS=(typeof window!=='undefined'&&window.SF_TS_OVERRIDE)||SF_DRAFT_END;
+const oneQBAt=ts=>ts<SF_TS, unsureFmt=ts=>ts>=SF_DRAFT_END&&ts<SF_SEASON;
 function ktcAdjust(A,B,top){
   const T=(top||9999)+100, M=Math.max(A[0]||0,B[0]||0, 1);
   const pv=v=>(.1*Math.pow(v/10099,1.4)+.7*Math.pow(v/(1.05*M),1.25)+.2)*v;
@@ -123,8 +126,8 @@ function avgItem(it,ts,oneQB){
   m=it.match(/^(.+) \([A-Z?]+\)$/);
   if(m){ const h=KHIST.players[m[1]]; if(!h) return now; const pts=[...seriesFrom(h[key],tN),now]; return mean(pts); }
   return now; }
-function gradeTrade(sides,season){ // sides: [[owner, [values...], items]]
-  const oneQB=season<SF_START, top=oneQB?KTCV.top1:KTCV.top;
+function gradeTrade(sides,ts){ // sides: [[owner, [values...], items]]
+  const oneQB=oneQBAt(ts), top=oneQB?KTCV.top1:KTCV.top;
   const tot=sides.map(s=>s[1].reduce((x,y)=>x+y,0));
   if(sides.length!==2) // KTC's adjustment is only defined for two sides; 3+ team deals compare each side with the average of the others
     return sides.map((s,i)=>[s[0], tot[i], s[2], tot[i]-mean(tot.filter((_,j)=>j!==i)), 0]);
@@ -198,7 +201,7 @@ function compute(){
   const posRank=pos=>{const arr=[...Array(N).keys()].sort((a,b)=>KT[b].pos[pos]-KT[a].pos[pos]); const r={}; arr.forEach((t,i)=>r[t]=i+1); return r;};
   PR={QB:posRank('QB'),RB:posRank('RB'),WR:posRank('WR'),TE:posRank('TE'),PICK:posRank('PICK')};
   const joke=new Set(S.jokeTs);
-  TRADES=S.trades.filter(t=>t[3].length>=2&&!joke.has(t[2])).map(t=> KTCV ? [t[0],t[1],t[2],gradeTrade(t[3].map(s=>[s[0],s[2]?s[2].split('; ').map(it=>Math.round(avgItem(it,t[2],t[0]<SF_START))):[],s[2]]),t[0])] : t);
+  TRADES=S.trades.filter(t=>t[3].length>=2&&!joke.has(t[2])).map(t=> KTCV ? [t[0],t[1],t[2],gradeTrade(t[3].map(s=>[s[0],s[2]?s[2].split('; ').map(it=>Math.round(avgItem(it,t[2],oneQBAt(t[2])))):[],s[2]]),t[2])] : t);
 }
 function windowOf(i){ // now = this season's playoff odds; later = KTC roster value rank and age
   const k=KT[i], po=BASE&&BASE[i]?BASE[i].po:0.5;
@@ -294,10 +297,10 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   el.innerHTML=`<div class="h-row"><div><div class="kicker">${TRADES.length} trades since 2020</div><h2>Trade Ledger</h2></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><label>Season<select id="tf-s"><option value="all">All seasons</option>${seasons.map(s=>`<option ${TF.season==s?'selected':''}>${s}</option>`).join("")}</select></label>
     <label>Team<select id="tf-t"><option value="all">All teams</option>${[...Array(S.owners.length).keys()].map(i=>`<option value="${i}" ${TF.team==i?'selected':''}>${esc(NAME(i))}</option>`).join("")}</select></label></div></div>
-  <p class="lead">Every asset is valued at its <b>average KeepTradeCut value from the day of the trade to today</b>, so a deal is judged on the whole stretch since it happened: a player who was great for three years and then fell off still counts, and so does one who took a while to break out. Picks count at a typical pick value until they're used, then as the player taken. Trades from 2020–21, before the league went superflex, use KTC's 1QB values. Two-team trades get KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. (KTC has no adjustment for 3+ team deals, so those compare each side with the average of the others.) Joke trades and quick do-overs are left out and listed at the bottom.</p>
+  <p class="lead">Every asset is valued at its <b>average KeepTradeCut value from the day of the trade to today</b>, so a deal is judged on the whole stretch since it happened: a player who was great for three years and then fell off still counts, and so does one who took a while to break out. Picks count at a typical pick value until they're used, then as the player taken. Trades from the 2020 season through the 2021 rookie draft (done May 3, 2021) use KTC's 1QB values; the league added a superflex spot before the 2021 season. Trades between that draft and Week 1 of 2021 are graded as superflex and marked, since the exact switch date isn't known. Two-team trades get KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. (KTC has no adjustment for 3+ team deals, so those compare each side with the average of the others.) Joke trades and quick do-overs are left out and listed at the bottom.</p>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Best traders ${TF.season==='all'?'all-time':TF.season}</h3><div class="tw"><table><thead><tr><th>Manager</th><th class="r">Trades</th><th class="r">Won</th><th class="r">Net KTC</th></tr></thead><tbody>
     ${board.map(i=>`<tr class="${i===MY_TEAM?'me':''}"><td>${teamCell(i,HANDLE(i))}</td><td class="r num">${tot[i].n}</td><td class="r num">${tot[i].won}</td><td class="r num ${tot[i].net>=0?'up':'down'}"><b>${sgn(tot[i].net)}</b></td></tr>`).join("")}</tbody></table></div></div>
-  <div class="card"><h3 style="margin-bottom:10px">Biggest heists</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">${teamCell(h.t[3][h.i][0],`${new Date(h.t[2]*1000).toLocaleDateString('en-US',{month:'short',year:'numeric'})}${h.t[0]<SF_START?' · 1QB era':''} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></div>`}).join("")}</div></div>
+  <div class="card"><h3 style="margin-bottom:10px">Biggest heists</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">${teamCell(h.t[3][h.i][0],`${new Date(h.t[2]*1000).toLocaleDateString('en-US',{month:'short',year:'numeric'})}${oneQBAt(h.t[2])?' · 1QB era':''} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></div>`}).join("")}</div></div>
   <div id="tl" style="display:grid;gap:12px">${list.length?list.slice(0,TF.n).map(tradeCard).join(""):'<div class="empty">No trades match these filters.</div>'}</div>
   <div style="text-align:center"><button class="btn" id="tl-more" ${list.length>TF.n?'':'hidden'}>Show more trades</button></div>
   <details class="card"><summary style="cursor:pointer"><h3 style="display:inline">Joke trades and do-overs (${S.tradedBack.length})</h3> <span class="note">Undone or redone within the hour. Not counted anywhere above.</span></summary>
@@ -305,8 +308,8 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   $('tf-s').onchange=e=>{TF.season=e.target.value;TF.n=30;R.trades(el)}; $('tf-t').onchange=e=>{TF.team=e.target.value;TF.n=30;R.trades(el)};
   const more=$('tl-more'); if(more) more.onclick=()=>{TF.n+=30;R.trades(el)}; };
 function tradeCard(t){ const nets=tradeNet(t); const best=Math.max(...nets); const d=new Date(t[2]*1000);
-  return `<div class="card trade"><div class="meta"><span>${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} · ${t[0]} season${t[1]>1?`, Week ${t[1]}`:''}</span><span>${t[3].length}-team trade</span></div>
-  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>Avg KTC${t[0]<SF_START?' (1QB)':''} <b>${f0(s[1])}</b>${s[4]>0?` <span class="muted">+${f0(s[4])} adj.</span>`:''}</span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div></div>`; }
+  return `<div class="card trade"><div class="meta"><span>${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} · ${t[0]} season${t[1]>1?`, Week ${t[1]}`:''}${unsureFmt(t[2])?' · <span title="Made between the 1QB rookie draft and the first superflex season; graded as superflex">format unclear</span>':''}</span><span>${t[3].length}-team trade</span></div>
+  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>Avg KTC${oneQBAt(t[2])?' (1QB)':''} <b>${f0(s[1])}</b>${s[4]>0?` <span class="muted">+${f0(s[4])} adj.</span>`:''}</span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div></div>`; }
 
 /* ---------------- DYNASTY ---------------- */
 R.dynasty=function(el){ const rec=SEA.rec; const ppg=t=>rec[t].pts.length?mean(rec[t].pts):0; const rows=[...S.tv].sort((a,b)=>a.rank-b.rank);
@@ -367,7 +370,7 @@ R.drafts=function(el){
   const gcol=g=>g[0]==='A'?'var(--good)':g[0]==='B'?'var(--amber)':g[0]==='C'?'var(--bad)':'var(--muted)';
   el.innerHTML=`<div class="h-row"><div><div class="kicker">Rookie drafts 2021–2026 · 240 picks</div><h2>Draft History</h2></div></div>
   <p class="lead">Six rookie drafts, four rounds each. The 2020 startup draft and the joke 2024 expansion draft are left out. Values are KeepTradeCut superflex as of ${esc(D.asOf)}; points are full-PPR NFL career points since being drafted. A hit is at least one top-24 RB/WR or top-12 QB/TE season.</p>
-  <div class="notice"><b>Format note:</b> the 2021 draft was 1QB. Superflex started in 2022, so 2021 QB picks (and the lack of them in round 1) aren't comparable to later years. 2021–23 were snake drafts, 2024–26 linear; 2025–26 grades will move.</div>
+  <div class="notice"><b>Format note:</b> the 2021 rookie draft was 1QB; the superflex spot was added after it, before the 2021 season. So 2021 QB picks (and the lack of them in round 1) aren't comparable to later years, and 2022 was the first superflex draft. 2021–23 were snake drafts, 2024–26 linear; 2025–26 grades will move.</div>
   <div class="grid3">${D.facts.map(f=>`<div class="card"><div style="font-family:var(--f-display);font-size:40px;font-weight:800;line-height:1">${esc(f[0])}</div><div class="note" style="margin-top:6px">${esc(f[1])}</div></div>`).join("")}</div>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Hit rate by round</h3><p class="note" style="margin:0 0 8px">2021–24 classes, which have had time to develop.</p>
     <table><thead><tr><th>Round</th><th>Hit rate</th><th class="r">Hits</th><th class="r">Elite</th></tr></thead><tbody>${D.rounds.map(r=>`<tr><td><b>${r[0]}</b></td><td style="min-width:90px">${bar(r[1]/r[2],'amber')}</td><td class="r num">${r[1]} of ${r[2]}</td><td class="r num">${r[3]}</td></tr>`).join("")}</tbody></table>
