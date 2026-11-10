@@ -104,9 +104,12 @@ function ktcAdjust(A,B,top){
   return [adj1,adj2]; }
 function gradeTrade(sides,season){ // sides: [[owner, [values...], items]]
   const oneQB=season<SF_START, top=oneQB?KTCV.top1:KTCV.top;
-  return sides.map((s,i)=>{ const mine=[...s[1]].sort((x,y)=>y-x), rest=sides.filter((_,j)=>j!==i).flatMap(x=>x[1]).sort((x,y)=>y-x);
-    const [aMine,aRest]=ktcAdjust(mine,rest,top); const tm=mine.reduce((x,y)=>x+y,0), tr=rest.reduce((x,y)=>x+y,0);
-    const n=sides.length-1; return [s[0], tm, s[2], (tm+aMine)-(tr+aRest)/n, aMine]; }); }
+  const tot=sides.map(s=>s[1].reduce((x,y)=>x+y,0));
+  if(sides.length!==2) // KTC's adjustment is only defined for two sides; 3+ team deals compare each side with the average of the others
+    return sides.map((s,i)=>[s[0], tot[i], s[2], tot[i]-mean(tot.filter((_,j)=>j!==i)), 0]);
+  const [a0,a1]=ktcAdjust([...sides[0][1]].sort((x,y)=>y-x),[...sides[1][1]].sort((x,y)=>y-x),top);
+  const d=(tot[0]+a0)-(tot[1]+a1);
+  return [[sides[0][0],tot[0],sides[0][2],d,a0],[sides[1][0],tot[1],sides[1][2],-d,a1]]; }
 function teamValues(){
   if(!(KTCV&&PLAYERS&&S.rosters)) return S.ktc.map(k=>({...k,value:k.adj,src:"snap"}));
   const pickV=(y,r)=>KTCV.picks[`${y} Mid ${['1st','2nd','3rd','4th'][r-1]}`]||0;
@@ -270,10 +273,10 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   el.innerHTML=`<div class="h-row"><div><div class="kicker">${TRADES.length} trades since 2020</div><h2>Trade Ledger</h2></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><label>Season<select id="tf-s"><option value="all">All seasons</option>${seasons.map(s=>`<option ${TF.season==s?'selected':''}>${s}</option>`).join("")}</select></label>
     <label>Team<select id="tf-t"><option value="all">All teams</option>${[...Array(S.owners.length).keys()].map(i=>`<option value="${i}" ${TF.team==i?'selected':''}>${esc(NAME(i))}</option>`).join("")}</select></label></div></div>
-  <p class="lead">Every trade is graded with today's KeepTradeCut values, so the ledger shows how deals have aged. Trades from 2020–21, before the league went superflex, use KTC's 1QB values. Each trade gets KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. Unmade picks count at mid-round value; drafted picks count as the player taken. Trades that were traded right back are left out and listed at the bottom.</p>
+  <p class="lead">Every trade is graded with today's KeepTradeCut values, so the ledger shows how deals have aged. Trades from 2020–21, before the league went superflex, use KTC's 1QB values. Two-team trades get KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. (KTC has no adjustment for 3+ team deals, so those compare each side with the average of the others.) Unmade picks count at mid-round value; drafted picks count as the player taken. Trades that were traded right back are left out and listed at the bottom.</p>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Best traders ${TF.season==='all'?'all-time':TF.season}</h3><div class="tw"><table><thead><tr><th>Manager</th><th class="r">Trades</th><th class="r">Won</th><th class="r">Net KTC</th></tr></thead><tbody>
     ${board.map(i=>`<tr class="${i===MY_TEAM?'me':''}"><td>${teamCell(i,HANDLE(i))}</td><td class="r num">${tot[i].n}</td><td class="r num">${tot[i].won}</td><td class="r num ${tot[i].net>=0?'up':'down'}"><b>${sgn(tot[i].net)}</b></td></tr>`).join("")}</tbody></table></div></div>
-  <div class="card"><h3 style="margin-bottom:10px">Biggest heists</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">${teamCell(h.t[3][h.i][0],`${h.t[0]} · Week ${h.t[1]} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></div>`}).join("")}</div></div>
+  <div class="card"><h3 style="margin-bottom:10px">Biggest heists</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">${teamCell(h.t[3][h.i][0],`${new Date(h.t[2]*1000).toLocaleDateString('en-US',{month:'short',year:'numeric'})}${h.t[0]<SF_START?' · 1QB era':''} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></div>`}).join("")}</div></div>
   <div id="tl" style="display:grid;gap:12px">${list.length?list.slice(0,TF.n).map(tradeCard).join(""):'<div class="empty">No trades match these filters.</div>'}</div>
   <div style="text-align:center"><button class="btn" id="tl-more" ${list.length>TF.n?'':'hidden'}>Show more trades</button></div>
   <details class="card"><summary style="cursor:pointer"><h3 style="display:inline">Traded right back (${S.tradedBack.length})</h3> <span class="note">Joke trades undone within the hour. Not counted anywhere above.</span></summary>
