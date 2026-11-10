@@ -140,7 +140,10 @@ function gradeTrade(sides,ts){ // sides: [[owner, [values...], items]]
 function ktcPrAdj(v,slotAvg){ const t=10000; if(!(slotAvg>0)) slotAvg=.1; const r=t+100; let s=(.3*Math.pow(v/r,1.4)+.2*Math.pow(v/(1.05*slotAvg),1.25)+.2)*v; const n=Math.pow(v/(r+100),1.3); return s*((n+n+Math.pow(slotAvg/(r+100),1.2))/3*.7+.3); }
 function teamValues(){
   if(!(KTCV&&PLAYERS&&S.rosters)) return S.ktc.map(k=>({...k,value:k.adj,src:"snap"}));
-  const pickV=(y,r)=>KTCV.picks[`${y} Mid ${['1st','2nd','3rd','4th'][r-1]}`]||0;
+  // KTC values a pick with no known slot (prProcessPicks): that year's pick tiers sorted by value, each repeated 4x,
+  // taking index 10*(round-1)+5 in a 10-team league (so 1st = Mid 1st, 2nd = Early 2nd, 3rd = Early 3rd, 4th = Late 3rd).
+  const tiers={}; Object.entries(KTCV.picks).forEach(([n,v])=>{ const y=n.slice(0,4); (tiers[y]=tiers[y]||[]).push(v); }); Object.values(tiers).forEach(a=>a.sort((x,y)=>y-x));
+  const pickV=(y,r)=>{ const a=tiers[String(y)]; if(!a) return 0; const idx=Math.floor((N*(r-1)+Math.min(N,Math.ceil(N*.5)))/4); return a[idx]||0; };
   const teams=[]; for(let o=0;o<N;o++){ const ids=S.rosters[o]||[];
     const pl=ids.map(id=>{const p=PLAYERS[id]; if(!p) return null; const k=KTCV.byName[norm(p[0])]; return [p[0],p[1],k?Math.floor(k[1]):(p[3]||0),k?k[0]:0];}).filter(x=>x&&['QB','RB','WR','TE'].includes(x[1]));
     const assets=pl.map(p=>({pos:p[1],v:p[3]}));
