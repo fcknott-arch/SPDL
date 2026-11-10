@@ -119,7 +119,7 @@ function avgItem(it,ts,oneQB){
     const generic=(oneQB?KTCV.picks1:KTCV.picks)[`${C.season+1} Mid ${ROUNDS[r-1]}`]||0;
     const pts=[...post,now]; return (preWeeks*generic+pts.reduce((a,b)=>a+b,0))/(preWeeks+pts.length); }
   m=it.match(/^(\d{4}) R(\d) \(/);
-  if(m){ const h=KHIST.picks[`${m[1]} Mid ${ROUNDS[+m[2]-1]}`]; if(!h||+m[1]<=C.season) return now; const pts=[...seriesFrom(h[key],tN),now]; return mean(pts); }
+  if(m){ const h=KHIST.picks[`${m[1]} Mid ${ROUNDS[+m[2]-1]}`]; if(!h) return now; if(+m[1]<=C.season){ const end=yymmdd(draftDay(+m[1])); const pts=seriesFrom(h[key],tN).length?h[key].filter(p=>p[0]>=tN&&p[0]<=end).map(p=>p[1]):[]; return pts.length?mean(pts):now; } const pts=[...seriesFrom(h[key],tN),now]; return mean(pts); }
   m=it.match(/^(.+) \([A-Z?]+\)$/);
   if(m){ const h=KHIST.players[m[1]]; if(!h) return now; const pts=[...seriesFrom(h[key],tN),now]; return mean(pts); }
   return now; }
