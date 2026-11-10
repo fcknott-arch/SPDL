@@ -24,7 +24,7 @@ const NAME=i=> i===10 ? "georgebez (former)" : (S.owners[i]?S.owners[i][2]:"Team
 const HANDLE=i=>S.owners[i]?S.owners[i][1]:"?";
 const short=i=>SHORT[i]||NAME(i);
 const abbr=i=>ABBR[i]||"T"+i;
-const teamCell=(i,sub,sh)=>`<span class="team"><span class="badge">${abbr(i)}</span><span style="min-width:0;display:grid"><b>${esc(sh?short(i):NAME(i))}</b>${sub?`<small>${esc(sub)}</small>`:""}</span></span>`;
+const teamCell=(i,sub,sh)=>`<span class="team" data-o="${i}" tabindex="0" title="Open team profile"><span class="badge">${abbr(i)}</span><span style="min-width:0;display:grid"><b>${esc(sh?short(i):NAME(i))}</b>${sub?`<small>${esc(sub)}</small>`:""}</span></span>`;
 
 /* ---------------- live Sleeper ---------------- */
 const ELIG={QB:['QB'],RB:['RB'],WR:['WR'],TE:['TE'],FLEX:['RB','WR','TE'],SUPER_FLEX:['QB','RB','WR','TE'],WRRB_FLEX:['RB','WR'],REC_FLEX:['WR','TE'],K:['K'],DEF:['DEF']};
@@ -288,28 +288,83 @@ R.luck=function(el){ const rec=SEA.rec;
     ${at.map(x=>`<tr><td>${teamCell(x.i,HANDLE(x.i))}</td><td class="r num">${x.a.seasons}</td><td class="r">${bar(x.eff,'amber')}</td></tr>`).join("")}</tbody></table></div><p class="note">Regular-season weeks, 2020 through Week ${C.lastW} of ${C.season}.</p></div></div>`; };
 
 /* ---------------- TRADES ---------------- */
-let TF={season:"all",team:"all",n:30};
-R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b)=>b-a);
-  const inS=t=>TF.season==="all"||t[0]==+TF.season; const list=TRADES.filter(t=>inS(t)&&(TF.team==="all"||t[3].some(s=>s[0]==+TF.team)));
-  const tot=Array.from({length:S.owners.length},()=>({net:0,n:0,won:0})); TRADES.filter(inS).forEach(t=>{const nets=tradeNet(t); t[3].forEach((s,i)=>{tot[s[0]].net+=nets[i];tot[s[0]].n++; if(nets[i]>0)tot[s[0]].won++;});});
-  const board=[...Array(S.owners.length).keys()].filter(i=>tot[i].n).sort((a,b)=>tot[b].net-tot[a].net);
-  const heists=TRADES.filter(inS).map(t=>{const n=tradeNet(t);const i=n.indexOf(Math.max(...n));return {t,i,v:n[i]}}).sort((a,b)=>b.v-a.v).slice(0,3);
-  el.innerHTML=`<div class="h-row"><div><div class="kicker">${TRADES.length} trades since 2020</div><h2>Trade Ledger</h2></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><label>Season<select id="tf-s"><option value="all">All seasons</option>${seasons.map(s=>`<option ${TF.season==s?'selected':''}>${s}</option>`).join("")}</select></label>
-    <label>Team<select id="tf-t"><option value="all">All teams</option>${[...Array(S.owners.length).keys()].map(i=>`<option value="${i}" ${TF.team==i?'selected':''}>${esc(NAME(i))}</option>`).join("")}</select></label></div></div>
-  <p class="lead">Every asset is valued at its <b>average KeepTradeCut value from the day of the trade to today</b>, so a deal is judged on the whole stretch since it happened: a player who was great for three years and then fell off still counts, and so does one who took a while to break out. Picks count at a typical pick value until they're used, then as the player taken. Trades made before the league voted in superflex on June 1, 2021 use KTC's 1QB values. Two-team trades get KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. (KTC has no adjustment for 3+ team deals, so those compare each side with the average of the others.) Joke trades and quick do-overs are left out and listed at the bottom.</p>
-  <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Best traders ${TF.season==='all'?'all-time':TF.season}</h3><div class="tw"><table><thead><tr><th>Manager</th><th class="r">Trades</th><th class="r">Won</th><th class="r">Net KTC</th></tr></thead><tbody>
-    ${board.map(i=>`<tr class="${i===MY_TEAM?'me':''}"><td>${teamCell(i,HANDLE(i))}</td><td class="r num">${tot[i].n}</td><td class="r num">${tot[i].won}</td><td class="r num ${tot[i].net>=0?'up':'down'}"><b>${sgn(tot[i].net)}</b></td></tr>`).join("")}</tbody></table></div></div>
-  <div class="card"><h3 style="margin-bottom:10px">Biggest heists</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">${teamCell(h.t[3][h.i][0],`${new Date(h.t[2]*1000).toLocaleDateString('en-US',{month:'short',year:'numeric'})}${oneQBAt(h.t[2])?' · 1QB era':''} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></div>`}).join("")}</div></div>
-  <div id="tl" style="display:grid;gap:12px">${list.length?list.slice(0,TF.n).map(tradeCard).join(""):'<div class="empty">No trades match these filters.</div>'}</div>
-  <div style="text-align:center"><button class="btn" id="tl-more" ${list.length>TF.n?'':'hidden'}>Show more trades</button></div>
+let TF={season:"all",team:"all",pos:"all",fmt:"all",sort:"new",q:"",n:30};
+let LORE=null;
+function valueAt(it,ts,oneQB){ // KTC value on the day of the trade
+  if(!KHIST) return null; const key=oneQB?'q':'sf', tN=yymmdd(new Date(ts*1000));
+  const at=ser=>{ if(!ser||!ser.length) return null; const p=ser.find(x=>x[0]>=tN); return p?p[1]:ser[ser.length-1][1]; };
+  let m=it.match(/^(\d{4}) R(\d) → (.+) \([A-Z]+\)$/);
+  if(m){ if(new Date(ts*1000)<draftDay(+m[1])) return (oneQB?KTCV.picks1:KTCV.picks)[`${C.season+1} Mid ${ROUNDS[+m[2]-1]}`]||null; const h=KHIST.players[m[3]]; return h?at(h[key]):null; }
+  m=it.match(/^(\d{4}) R(\d) \(/); if(m){ const h=KHIST.picks[`${m[1]} Mid ${ROUNDS[+m[2]-1]}`]; return h?at(h[key]):null; }
+  m=it.match(/^(.+) \([A-Z?]+\)$/); if(m){ const h=KHIST.players[m[1]]; return h?at(h[key]):null; }
+  return null; }
+const posOfItem=it=>{ if(/^\d{4} R\d \(/.test(it)) return 'PICK'; const m=it.match(/\(([A-Z]+)\)$/); return /→/.test(it)?'PICK':(m?m[1]:''); };
+function tradeMatches(t){
+  if(TF.season!=="all"&&t[0]!=+TF.season) return false;
+  if(TF.team!=="all"&&!t[3].some(s=>s[0]==+TF.team)) return false;
+  if(TF.fmt==="1qb"&&!oneQBAt(t[2])) return false; if(TF.fmt==="sf"&&oneQBAt(t[2])) return false;
+  const items=t[3].flatMap(s=>(s[2]||'').split('; '));
+  if(TF.pos!=="all"&&!items.some(it=>posOfItem(it)===TF.pos)) return false;
+  if(TF.q){ const q=TF.q.toLowerCase(); if(!items.some(it=>it.toLowerCase().includes(q))&&!t[3].some(s=>NAME(s[0]).toLowerCase().includes(q)||HANDLE(s[0]).toLowerCase().includes(q))) return false; }
+  return true; }
+const gap=t=>{const n=tradeNet(t); return Math.max(...n);};
+R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b)=>b-a); const owners=[...Array(S.owners.length).keys()];
+  el.innerHTML=`<div class="h-row"><div><div class="kicker">${TRADES.length} trades since 2020</div><h2>Trade Ledger</h2></div></div>
+  <p class="lead">Who won every trade, judged on each asset's <b>average KeepTradeCut value from the day of the deal to today</b>. Tap any trade for the full breakdown.</p>
+  <details class="card"><summary style="cursor:pointer;font-weight:600">How trades are graded</summary><ul style="margin:10px 0 0;padding-left:18px;display:grid;gap:6px">
+    <li>Every player and pick is valued at its average KTC value from the trade date to today, so a deal is judged on the whole stretch since it happened, not just the day it was made or today.</li>
+    <li>Picks count at a typical value for their round until they're used, then as the player taken.</li>
+    <li>Trades before the league voted in superflex (June 1, 2021) use KTC's 1QB values.</li>
+    <li>Two-team trades get KTC's own trade-calculator value adjustment: the side that got the best player is credited for consolidating, so a pile of depth pieces doesn't win automatically. KTC has no adjustment for 3+ team deals, so those compare each side with the average of the others.</li>
+    <li>Joke trades and quick do-overs are left out and listed at the bottom.</li></ul></details>
+  <div class="card filters" style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));align-items:end">
+    <label style="grid-column:1/-1">Search players, picks or teams<input type="search" id="tf-q" placeholder="e.g. Jefferson, 2023 R1, Karl" value="${esc(TF.q)}" autocomplete="off"></label>
+    <label>Season<select id="tf-s"><option value="all">All seasons</option>${seasons.map(s=>`<option ${TF.season==s?'selected':''}>${s}</option>`).join("")}</select></label>
+    <label>Team<select id="tf-t"><option value="all">All teams</option>${owners.map(i=>`<option value="${i}" ${TF.team==i?'selected':''}>${esc(short(i))}</option>`).join("")}</select></label>
+    <label>Includes<select id="tf-p">${[['all','Anything'],['QB','A QB'],['RB','An RB'],['WR','A WR'],['TE','A TE'],['PICK','A draft pick']].map(([v,l])=>`<option value="${v}" ${TF.pos===v?'selected':''}>${l}</option>`).join("")}</select></label>
+    <label>Format<select id="tf-f">${[['all','Both'],['1qb','1QB era'],['sf','Superflex']].map(([v,l])=>`<option value="${v}" ${TF.fmt===v?'selected':''}>${l}</option>`).join("")}</select></label>
+    <label>Sort<select id="tf-o">${[['new','Newest first'],['old','Oldest first'],['gap','Most lopsided'],['close','Closest'],['big','Most pieces']].map(([v,l])=>`<option value="${v}" ${TF.sort===v?'selected':''}>${l}</option>`).join("")}</select></label>
+    <div style="display:flex;align-items:end"><button class="btn" id="tf-x">Clear filters</button></div></div>
+  <div id="tl-stats"></div><div id="tl-count" class="note" aria-live="polite"></div>
+  <div id="tl" style="display:grid;gap:12px"></div>
+  <div style="text-align:center"><button class="btn" id="tl-more" hidden>Show more trades</button></div>
   <details class="card"><summary style="cursor:pointer"><h3 style="display:inline">Joke trades and do-overs (${S.tradedBack.length})</h3> <span class="note">Undone or redone within the hour. Not counted anywhere above.</span></summary>
   <div class="tw" style="margin-top:10px"><table><thead><tr><th>Date</th><th>Team</th><th>Got</th><th>Team</th><th>Got</th><th class="r">Undone after</th></tr></thead><tbody>${S.tradedBack.map(r=>`<tr><td class="muted" style="white-space:nowrap">${r[0]}</td><td>${teamCell(r[1],HANDLE(r[1]),true)}</td><td style="font-size:13px">${esc(r[2])}</td><td>${teamCell(r[3],HANDLE(r[3]),true)}</td><td style="font-size:13px">${esc(r[4])}${r[6]?`<div class="note">${esc(r[6])}</div>`:''}</td><td class="r num">${r[5]}</td></tr>`).join("")}</tbody></table></div></details>`;
-  $('tf-s').onchange=e=>{TF.season=e.target.value;TF.n=30;R.trades(el)}; $('tf-t').onchange=e=>{TF.team=e.target.value;TF.n=30;R.trades(el)};
-  const more=$('tl-more'); if(more) more.onclick=()=>{TF.n+=30;R.trades(el)}; };
-function tradeCard(t){ const nets=tradeNet(t); const best=Math.max(...nets); const d=new Date(t[2]*1000);
-  return `<div class="card trade"><div class="meta"><span>${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} · ${t[0]} season${t[1]>1?`, Week ${t[1]}`:''}</span><span>${t[3].length}-team trade</span></div>
-  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>Avg KTC${oneQBAt(t[2])?' (1QB)':''} <b>${f0(s[1])}</b>${s[4]>0?` <span class="muted">+${f0(s[4])} adj.</span>`:''}</span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div></div>`; }
+  const draw=()=>{ const list=TRADES.filter(tradeMatches);
+    const sorters={new:(a,b)=>b[2]-a[2],old:(a,b)=>a[2]-b[2],gap:(a,b)=>gap(b)-gap(a),close:(a,b)=>gap(a)-gap(b),big:(a,b)=>b[3].reduce((s,x)=>s+(x[2]||'').split('; ').length,0)-a[3].reduce((s,x)=>s+(x[2]||'').split('; ').length,0)};
+    list.sort(sorters[TF.sort]||sorters.new);
+    const tot=owners.map(()=>({net:0,n:0,won:0})); list.forEach(t=>{const nets=tradeNet(t); t[3].forEach((s,i)=>{tot[s[0]].net+=nets[i];tot[s[0]].n++; if(nets[i]>0)tot[s[0]].won++;});});
+    const board=owners.filter(i=>tot[i].n).sort((a,b)=>tot[b].net-tot[a].net);
+    const heists=list.map(t=>{const n=tradeNet(t);const i=n.indexOf(Math.max(...n));return {t,i,v:n[i]}}).sort((a,b)=>b.v-a.v).slice(0,3);
+    const filtered=TF.season!=='all'||TF.team!=='all'||TF.pos!=='all'||TF.fmt!=='all'||TF.q;
+    $('tl-stats').innerHTML=list.length?`<div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Best traders${filtered?' (these trades)':' all-time'}</h3><div class="tw"><table class="sortable"><thead><tr><th>Manager</th><th class="r">Trades</th><th class="r">Won</th><th class="r">Net KTC</th></tr></thead><tbody>
+      ${board.map(i=>`<tr class="${i===MY_TEAM?'me':''}"><td>${teamCell(i,HANDLE(i))}</td><td class="r num">${tot[i].n}</td><td class="r num">${tot[i].won}</td><td class="r num ${tot[i].net>=0?'up':'down'}" data-v="${Math.round(tot[i].net)}"><b>${sgn(tot[i].net)}</b></td></tr>`).join("")}</tbody></table></div></div>
+      <div class="card"><h3 style="margin-bottom:10px">Biggest heists${filtered?' (these trades)':''}</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<button class="heist" data-ts="${h.t[2]}" style="all:unset;display:block;cursor:pointer;padding:8px 0;border-bottom:1px solid var(--line);width:100%">${teamCell(h.t[3][h.i][0],`${new Date(h.t[2]*1000).toLocaleDateString('en-US',{month:'short',year:'numeric'})}${oneQBAt(h.t[2])?' · 1QB era':''} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></button>`}).join("")}</div></div>`:'';
+    $('tl-count').textContent=`${list.length} trade${list.length===1?'':'s'}${filtered?' match these filters':''}`;
+    $('tl').innerHTML=list.length?list.slice(0,TF.n).map(tradeCard).join(""):'<div class="empty">No trades match these filters.</div>';
+    $('tl-more').hidden=!(list.length>TF.n); };
+  let tmr=null;
+  $('tf-q').oninput=e=>{ clearTimeout(tmr); tmr=setTimeout(()=>{TF.q=e.target.value.trim(); TF.n=30; draw();},180); };
+  [['tf-s','season'],['tf-t','team'],['tf-p','pos'],['tf-f','fmt'],['tf-o','sort']].forEach(([id,k])=>$(id).onchange=e=>{TF[k]=e.target.value; TF.n=30; draw();});
+  $('tf-x').onclick=()=>{TF={season:"all",team:"all",pos:"all",fmt:"all",sort:"new",q:"",n:30}; R.trades(el);};
+  $('tl-more').onclick=()=>{TF.n+=30; draw();};
+  el.addEventListener('click',e=>{ const h=e.target.closest('.heist'); if(h){ const ts=+h.dataset.ts; TF={season:"all",team:"all",pos:"all",fmt:"all",sort:"new",q:"",n:999}; R.trades(el); const c=document.querySelector(`.trade[data-ts="${ts}"]`); if(c){ c.querySelector('details').open=true; c.scrollIntoView({behavior:'smooth',block:'start'}); } } });
+  draw(); };
+function tradeCard(t){ const nets=tradeNet(t); const best=Math.max(...nets); const d=new Date(t[2]*1000); const q1=oneQBAt(t[2]);
+  const chat=LORE&&LORE.tradeChat&&LORE.tradeChat[String(t[2])];
+  return `<div class="card trade" data-ts="${t[2]}"><div class="meta"><span>${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} · ${t[0]} season${t[1]>1?`, Week ${t[1]}`:''}${chat?' · <span title="The league talked about this one">💬</span>':''}</span><span>${t[3].length}-team trade · ${q1?'1QB':'Superflex'}</span></div>
+  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>Avg KTC${q1?' (1QB)':''} <b>${f0(s[1])}</b>${s[4]>0?` <span class="muted">+${f0(s[4])} adj.</span>`:''}</span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div>
+  <details class="tdet"><summary>Breakdown${chat?' and what the league said':''}</summary><div class="tdet-body" data-ts="${t[2]}"></div></details></div>`; }
+function tradeDetail(ts){ const t=TRADES.find(x=>x[2]===ts); if(!t) return ''; const q1=oneQBAt(ts); const nets=tradeNet(t);
+  const chat=LORE&&LORE.tradeChat&&LORE.tradeChat[String(ts)];
+  const rows=t[3].map((s,i)=>{ const items=s[2]?s[2].split('; '):[];
+    return `<tr><th colspan="4" style="text-align:left;padding-top:10px">${esc(short(s[0]))} received <span class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}" style="font-weight:700">${sgn(nets[i])}</span></th></tr>`+
+      items.map(it=>{ const then=valueAt(it,ts,q1), avg=avgItem(it,ts,q1), now=itemValue(it,q1); return `<tr><td>${esc(it)}</td><td class="r num">${then==null?'—':f0(then)}</td><td class="r num"><b>${f0(avg)}</b></td><td class="r num">${f0(now)}</td></tr>`; }).join("")+
+      `<tr><td class="note">Total${s[4]>0?` + KTC adjustment ${f0(s[4])}`:''}</td><td></td><td class="r num"><b>${f0(s[1]+(s[4]||0))}</b></td><td></td></tr>`; }).join("");
+  return `<div class="tw"><table><thead><tr><th>Asset</th><th class="r">At trade</th><th class="r">Average</th><th class="r">Today</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="note" style="margin:8px 0 0">${q1?'KTC 1QB values (made before the superflex switch).':'KTC superflex values.'} "Average" is what the grade uses. Picks show a typical pick value until they're used.</p>
+  ${chat?`<div style="margin-top:10px"><div class="kicker" style="font-size:12px;margin-bottom:4px">From the league chat</div>${chat.map(c=>`<blockquote style="margin:6px 0;padding:6px 10px;border-left:3px solid var(--amber);background:var(--sunk);border-radius:4px">${esc(c)}</blockquote>`).join("")}</div>`:''}`; }
+document.addEventListener('toggle',e=>{ const d=e.target; if(!(d instanceof HTMLDetailsElement)||!d.classList.contains('tdet')||!d.open) return; const b=d.querySelector('.tdet-body'); if(b&&!b.dataset.done){ b.innerHTML=tradeDetail(+b.dataset.ts); b.dataset.done=1; } },true);
 
 /* ---------------- DYNASTY ---------------- */
 R.dynasty=function(el){ const rec=SEA.rec; const ppg=t=>rec[t].pts.length?mean(rec[t].pts):0; const rows=[...S.tv].sort((a,b)=>a.rank-b.rank);
@@ -346,6 +401,7 @@ R.history=function(el){ const done=S.hist.filter(h=>h.done).sort((a,b)=>b.s-a.s)
   const nm=(h,i)=>{const n=h.names[i]; return n&&!BADNAME.test(n)?n:HANDLE(i);};
   el.innerHTML=`<div class="h-row"><div><div class="kicker">${done.length} completed seasons</div><h2>History</h2></div></div>
   <div class="champs">${done.map(h=>`<div class="champ"><span class="yr">${h.s}</span><span class="who">${esc(nm(h,h.champ))}</span><span class="note">${esc(HANDLE(h.champ))} · beat ${esc(HANDLE(h.ru))} in the final</span></div>`).join("")}</div>
+  ${timelineCard()}
   <div class="card tw"><h3 style="margin-bottom:8px">All-time standings</h3><table><thead><tr><th>Manager</th><th class="r">Seasons</th><th class="r">W-L</th><th class="r">Win %</th><th class="r">Points</th><th class="r">Playoffs</th><th class="r">Finals</th><th class="r">Titles</th></tr></thead><tbody>
     ${at.map(a=>`<tr class="${a.i===MY_TEAM?'me':''}"><td>${teamCell(a.i,HANDLE(a.i))}</td><td class="r num">${a.seasons}</td><td class="r num">${a.w}-${a.l}</td><td class="r num">${(a.w/(a.w+a.l)*100).toFixed(1)}%</td><td class="r num">${f0(a.pf)}</td><td class="r num">${a.po}</td><td class="r num">${a.finals}</td><td class="r num"><b>${a.titles?'🏆'.repeat(a.titles):'—'}</b></td></tr>`).join("")}</tbody></table>
     <p class="note">Covers 2020 through Week ${C.lastW} of ${C.season}. Playoff, finals and title counts are completed seasons only.</p></div>
@@ -383,6 +439,58 @@ R.drafts=function(el){
   <div class="card"><h3 style="margin-bottom:10px">Best single draft classes</h3><table><tbody>${D.classes.map(c=>`<tr><td>${who(c[0])}</td><td class="num muted">${c[1]}</td><td class="r num"><b>${fmt(c[2])}</b></td></tr><tr><td colspan="3" class="note" style="padding-top:0">${esc(c[3])}</td></tr>`).join("")}</tbody></table><p class="note">${esc(D.classesMore)}</p></div></div>
   <div class="card tw"><h3 style="margin-bottom:10px">Manager report cards</h3><table><thead><tr><th>Manager</th><th class="r">Picks</th><th class="r">1sts</th><th class="r">Hit rate</th><th class="r">Grade</th><th>Summary</th></tr></thead><tbody>${D.grades.map(g=>`<tr class="${g[0]===MY_TEAM?'me':''}"><td>${who(g[0])}</td><td class="r num">${g[1]}</td><td class="r num">${g[2]}</td><td class="r num">${g[3]}</td><td class="r"><b style="font-family:var(--f-display);font-size:22px;color:${gcol(g[4])}">${g[4]}</b></td><td style="min-width:260px;font-size:14px">${esc(g[5])}</td></tr>`).join("")}</tbody></table></div>
   <div class="card"><h3 style="margin-bottom:8px">A few more facts</h3><ul style="margin:0;padding-left:18px;display:grid;gap:6px">${D.more.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`; };
+
+
+/* ---------------- SORTABLE TABLES (every table with 3+ plain rows) ---------------- */
+function cellVal(td){ if(!td) return -Infinity; if(td.dataset&&td.dataset.v!=null) return +td.dataset.v;
+  const t=td.textContent.replace(/🏆/g,'').trim(); if(!t||t==='—') return -Infinity;
+  let m=t.match(/^(\d+)-(\d+)(?:-(\d+))?$/); if(m){ const w=+m[1],l=+m[2],ti=+(m[3]||0); return (w+ti/2)/Math.max(1,w+l+ti)+w*1e-4; }
+  const n=t.replace(/[<>,%+]/g,'').replace('−','-').match(/^-?\d+(\.\d+)?/); if(n&&/^[<>]?[+−-]?[\d.,]+%?(\s|$)/.test(t)) return parseFloat(n[0]);
+  return t.toLowerCase(); }
+function enhanceTables(root){ (root||document).querySelectorAll('#main table').forEach(tb=>{ if(tb.dataset.sorted) return; const head=tb.tHead, body=tb.tBodies[0]; if(!head||!body) return;
+  const rows=[...body.rows]; if(rows.length<3||rows.some(r=>r.querySelector('th[colspan],td[colspan]'))||tb.classList.contains('h2h')) return;
+  const ths=[...head.rows[head.rows.length-1].cells]; if(ths.length<2) return; tb.dataset.sorted=1;
+  ths.forEach((th,ci)=>{ if(!th.textContent.trim()) return; th.classList.add('sortable-th'); th.tabIndex=0; th.setAttribute('role','button'); th.title='Sort by '+th.textContent.trim();
+    const go=()=>{ const dir=th.getAttribute('aria-sort')==='descending'?'ascending':'descending'; ths.forEach(x=>x.removeAttribute('aria-sort')); th.setAttribute('aria-sort',dir);
+      const rs=[...body.rows]; rs.sort((a,b)=>{ const x=cellVal(a.cells[ci]), y=cellVal(b.cells[ci]); const c=(typeof x==='string'||typeof y==='string')?String(x).localeCompare(String(y)):(x-y); return dir==='ascending'?c:-c; }); rs.forEach(r=>body.appendChild(r)); };
+    th.onclick=go; th.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); go(); } }; }); }); }
+let _enh=null; new MutationObserver(()=>{ clearTimeout(_enh); _enh=setTimeout(()=>enhanceTables(),60); }).observe(document.getElementById('main'),{childList:true,subtree:true});
+
+/* ---------------- TEAM PROFILE ---------------- */
+function teamProfile(o){ const cur=o<N; const rec=cur?SEA.rec[o]:null, b=cur?BASE[o]:null, k=cur?KT[o]:null, at=AT[o];
+  const trades=TRADES.map(t=>{ const i=t[3].findIndex(s=>s[0]===o); return i<0?null:{t,net:tradeNet(t)[i],got:t[3][i][2]}; }).filter(Boolean);
+  const net=trades.reduce((s,x)=>s+x.net,0), won=trades.filter(x=>x.net>0).length; const bestT=[...trades].sort((a,b)=>b.net-a.net)[0], worstT=[...trades].sort((a,b)=>a.net-b.net)[0];
+  const partners={}; trades.forEach(x=>x.t[3].forEach(s=>{ if(s[0]!==o) partners[s[0]]=(partners[s[0]]||0)+1; })); const tp=Object.entries(partners).sort((a,b)=>b[1]-a[1])[0];
+  const grade=DR&&DR.grades?DR.grades.find(g=>g[0]===o):null; const rank=cur?STAND.indexOf(o)+1:null;
+  const st=(v,l)=>`<div class="stat"><b>${v}</b><span>${l}</span></div>`; const tline=x=>x?`<div class="note">${new Date(x.t[2]*1000).toLocaleDateString('en-US',{month:'short',year:'numeric'})} · <b class="${x.net>=0?'up':'down'}">${sgn(x.net)}</b> · got ${esc((x.got||'').split('; ').slice(0,3).join('; '))}${(x.got||'').split('; ').length>3?'…':''}</div>`:'';
+  const fut=cur?Object.keys(S.fut).map(y=>`<div><span class="muted num">${y}</span> ${picksHeld(o,y)}</div>`).join(""):'';
+  return `<div class="h-row"><div>${teamCell(o,HANDLE(o)).replace(' data-o="'+o+'"','')}</div><button class="btn" id="tp-x" aria-label="Close">Close</button></div>
+  ${cur?`<div><div class="kicker" style="font-size:12px;margin-bottom:6px">${C.season} season ${pillOf(windowOf(o))}</div><div class="stats">${st(`${rec.w}-${rec.l}${rec.t?'-'+rec.t:''}`,`Record · ${rank}${['st','nd','rd'][rank-1]||'th'} place`)}${st(f1(rec.pf),'Points for')}${st(f1(rec.pa),'Points against')}${st(f1(OPT0[o]),'Max PF')}${st(pctS(b.po),'Playoff odds')}${st(pctS(b.bye),'Bye odds')}${st(b.avg.toFixed(1),'Avg projected draft slot')}</div></div>
+  <div><div class="kicker" style="font-size:12px;margin-bottom:6px">Dynasty</div><div class="stats">${st(f0(k.value),`Team value · ${k.rank} of ${N}`)}${st((+k.age).toFixed(1),'Avg age of top 20')}${['QB','RB','WR','TE','PICK'].map(p=>st(PR[p][o],`${p==='PICK'?'Picks':p} room rank`)).join("")}</div>
+  <div style="margin-top:8px;font-size:13px">${k.young.map(y=>`<span class="chip">${esc(y[0])} <span class="muted">${y[1]} ${y[2]}</span></span>`).join("")}</div><div style="margin-top:8px;display:grid;gap:4px;font-size:13px">${fut}</div></div>`:''}
+  ${at?`<div><div class="kicker" style="font-size:12px;margin-bottom:6px">All-time</div><div class="stats">${st(`${at.w}-${at.l}`,'Regular-season record')}${st(at.titles?'🏆'.repeat(at.titles):'0','Titles')}${st(at.finals,'Finals')}${st(at.po,'Playoff trips')}${st(at.seasons,'Seasons')}</div></div>`:''}
+  <div><div class="kicker" style="font-size:12px;margin-bottom:6px">Trading</div><div class="stats">${st(trades.length,'Trades')}${st(won,'Won')}${st(sgn(net),'Net KTC')}${tp?st(esc(short(+tp[0])),`Top partner (${tp[1]} trades)`):''}</div>
+  ${bestT?`<div style="margin-top:8px"><b style="font-size:13px">Best trade</b>${tline(bestT)}</div>`:''}${worstT&&worstT!==bestT?`<div style="margin-top:6px"><b style="font-size:13px">Worst trade</b>${tline(worstT)}</div>`:''}
+  <div style="margin-top:8px"><a href="#trades" data-tp-trades="${o}">See all of ${esc(short(o))}'s trades →</a></div></div>
+  ${grade?`<div><div class="kicker" style="font-size:12px;margin-bottom:6px">Rookie drafts</div><div class="stats">${st(grade[4],'Draft grade')}${st(grade[1],'Picks made')}${st(grade[3],'Hit rate')}</div><p class="note" style="margin:8px 0 0">${esc(grade[5])}</p></div>`:''}`; }
+function openTeam(o){ if(!DR){ j('data/drafts.json').then(d=>{DR=d; if(document.querySelector('.tp-back')) openTeam(o);}).catch(()=>{}); }
+  let bk=document.querySelector('.tp-back'); const last=document.activeElement; if(!bk){ bk=document.createElement('div'); bk.className='tp-back'; document.body.appendChild(bk); }
+  bk.innerHTML=`<div class="tp" role="dialog" aria-modal="true" aria-label="${esc(NAME(o))}">${teamProfile(o)}</div>`; document.body.style.overflow='hidden';
+  const close=()=>{ bk.remove(); document.body.style.overflow=''; document.removeEventListener('keydown',esc_); if(last&&last.focus) last.focus(); };
+  const esc_=e=>{ if(e.key==='Escape') close(); }; document.addEventListener('keydown',esc_);
+  bk.onclick=e=>{ if(e.target===bk||e.target.id==='tp-x') close(); const a=e.target.closest('[data-tp-trades]'); if(a){ TF={season:"all",team:a.dataset.tpTrades,pos:"all",fmt:"all",sort:"new",q:"",n:30}; close(); if(current()==='trades') show(); } };
+  bk.querySelector('#tp-x').focus(); }
+document.addEventListener('click',e=>{ const t=e.target.closest('#main .team[data-o]'); if(!t||e.target.closest('button,a,.wif,label')) return; openTeam(+t.dataset.o); });
+document.addEventListener('keydown',e=>{ if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('#main .team[data-o]')){ e.preventDefault(); openTeam(+e.target.dataset.o); } });
+
+/* ---------------- LEAGUE TIMELINE (History tab) ---------------- */
+let TLF='all';
+function timelineCard(){ if(!LORE||!LORE.timeline) return ''; const types=[['all','Everything'],['format','Format changes'],['vote','Votes'],['trade','Trades'],['draft','Drafts'],['tradition','Traditions']];
+  const items=LORE.timeline.filter(x=>TLF==='all'||x[1]===TLF);
+  return `<div class="card" id="timeline"><div class="h-row" style="margin-bottom:8px"><h3>League timeline</h3><span class="note">${esc(LORE.note)}</span></div>
+  <div class="tl-chips" role="group" aria-label="Filter timeline">${types.map(([v,l])=>`<button data-tl="${v}" aria-pressed="${TLF===v}">${l}</button>`).join("")}</div>
+  <div>${items.map(x=>`<div class="tl-item"><div class="d">${new Date(x[0]+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div><div><b>${esc(x[2])}</b><span class="note">${esc(x[3])}</span></div></div>`).join("")}</div></div>`; }
+document.addEventListener('click',e=>{ const b=e.target.closest('[data-tl]'); if(!b) return; TLF=b.dataset.tl; const c=document.getElementById('timeline'); if(c) c.outerHTML=timelineCard(); });
 
 /* ---------------- WHAT IFS ---------------- */
 const RND=["Quarterfinal","Semifinal","Final"];
@@ -511,7 +619,8 @@ R.commish=function(el){
 /* ---------------- boot ---------------- */
 (async function boot(){
   try{ S=await j('data/static.json'); }catch(e){ $('main').innerHTML='<div class="notice">Couldn\'t load league data. Refresh to try again.</div>'; return; }
-  const [kt,pl,kh]=await Promise.all([j('data/ktc.json').catch(()=>null), j('data/players.json').catch(()=>null), j('data/ktc_hist.json').catch(()=>null)]);
+  const [kt,pl,kh,lo]=await Promise.all([j('data/ktc.json').catch(()=>null), j('data/players.json').catch(()=>null), j('data/ktc_hist.json').catch(()=>null), j('data/lore.json').catch(()=>null)]);
+  if(lo) LORE=lo;
   if(kh&&kh.players) KHIST=kh;
   if(kt&&kt.players){ KTCV={gen:kt.gen,picks:kt.picks||{},picks1:kt.picks1qb||kt.picks||{},map:{},map1:{},byName:{},top:0,top1:0}; kt.players.forEach(p=>{ const k=norm(p[0]), v1=p[5]!=null?p[5]:p[4]; KTCV.map[k]=Math.max(KTCV.map[k]||0,p[4]); KTCV.map1[k]=Math.max(KTCV.map1[k]||0,v1); KTCV.byName[k]=[p[4],p[3]]; KTCV.top=Math.max(KTCV.top,p[4]); KTCV.top1=Math.max(KTCV.top1,v1); }); }
   if(pl&&pl.players) PLAYERS=pl.players;

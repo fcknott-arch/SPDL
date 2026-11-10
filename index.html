@@ -176,6 +176,37 @@ footer{color:var(--muted);font-size:12px;padding-block:24px;border-top:1px solid
 .auth .btn{background:rgba(0,0,0,.25);color:var(--turf-ink);border-color:rgba(255,255,255,.25)}
 .loading{padding:40px 0;color:var(--muted);text-align:center}
 .uid{font-family:var(--f-mono);font-size:12px;background:var(--sunk);padding:4px 8px;border-radius:5px;user-select:all;word-break:break-all}
+/* sortable tables */
+th.sortable-th{cursor:pointer;user-select:none;white-space:nowrap}
+th.sortable-th:hover{color:var(--ink)}
+th.sortable-th::after{content:"↕";opacity:.35;margin-left:4px;font-size:11px}
+th.sortable-th[aria-sort="ascending"]::after{content:"↑";opacity:1}
+th.sortable-th[aria-sort="descending"]::after{content:"↓";opacity:1}
+th.sortable-th:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+/* clickable teams */
+.team[data-o]{cursor:pointer}
+.team[data-o]:hover b{text-decoration:underline;text-underline-offset:2px}
+/* trade details */
+details.tdet{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
+details.tdet>summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--amber)}
+details.tdet table td,details.tdet table th{font-size:13px}
+.filters label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+.filters input,.filters select{width:100%;min-width:0}
+/* team profile */
+.tp-back{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:24px 12px}
+.tp{background:var(--bg);color:var(--ink);border-radius:14px;max-width:760px;width:100%;padding:20px;display:grid;gap:14px;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.tp .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));gap:10px}
+.tp .stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tp .stat b{display:block;font-family:var(--f-display);font-size:24px;line-height:1.1}
+.tp .stat span{font-size:12px;color:var(--muted)}
+/* timeline */
+.tl-item{display:grid;grid-template-columns:96px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.tl-item .d{font-family:var(--f-mono);font-size:12px;color:var(--muted);padding-top:3px}
+.tl-item b{display:block}
+.tl-chips{display:flex;gap:6px;flex-wrap:wrap}
+.tl-chips button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:20px;padding:4px 12px;font-size:13px;cursor:pointer}
+.tl-chips button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+@media (max-width:560px){.tl-item{grid-template-columns:1fr;gap:2px}}
 </style>
 </head>
 <body>
@@ -193,7 +224,7 @@ footer{color:var(--muted);font-size:12px;padding-block:24px;border-top:1px solid
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="config.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="config.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>
