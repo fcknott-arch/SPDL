@@ -1,85 +1,341 @@
 {
-  "asOf": "Nov. 9, 2026",
-  "rounds": [
-    ["1st", 28, 40, 23],
-    ["2nd", 15, 40, 8],
-    ["3rd", 8, 40, 4],
-    ["4th", 4, 40, 4]
+ "asOf": "Nov. 9, 2026",
+ "rounds": [
+  [
+   "1st",
+   28,
+   40,
+   23
   ],
-  "facts": [
-    ["70%", "First-round hit rate, 2021–24 classes. It falls to 38% in round 2 and 10% in round 4."],
-    ["7 of 8", "First-round RBs who hit. First-round WRs: 12 of 20."],
-    ["63%", "Picks made by someone other than the original owner (152 of 240). In 2023 it was 34 of 40."],
-    ["32%", "Draftees on no roster today (77 of 240). Only 107 are still with the team that drafted them."]
+  [
+   "2nd",
+   15,
+   40,
+   8
   ],
-  "ones": [
-    [2021, "Najee Harris", 5, "1QB draft. Three straight 200-point seasons, best finish RB3. Now unrostered (KTC 607)."],
-    [2022, "Breece Hall", 8, "First superflex draft. Finished RB2 in 2023. Now on Smyth's team (5,076)."],
-    [2023, "Bijan Robinson", 6, "The best 1.01 so far: 371 points in 2025. Now on Colin's team (9,418)."],
-    [2024, "Marvin Harrison Jr.", 8, "The worst 1.01 so far. Best finish WR30. Now on Braeden's team (3,320)."],
-    [2025, "Ashton Jeanty", 7, "Still a good RB, but only 4th in his own class by KTC."],
-    [2026, "Jeremiyah Love", 0, "No. 1 in his class by KTC (6,242). Currently on IR with an ankle sprain."]
+  [
+   "3rd",
+   8,
+   40,
+   4
   ],
-  "redraft": [
-    [2021, "1QB", "Chase (1.02), St. Brown (2.09), Lawrence (2.01), Nico Collins (4.04), Javonte Williams", "Lawrence went 2.01 in a 1QB format; superflex made him look like a steal later."],
-    [2022, "SF", "McBride (3.06), Walker (1.02), London, Olave, James Cook (2.03)", "The best player in the class went in round 3."],
-    [2023, "SF", "JSN (1.05), Gibbs (1.06), Bijan (1.01), Flowers (1.09), Achane (2.02)", "JSN and Gibbs are now the two most valuable players in the league."],
-    [2024, "SF", "Bowers (1.08), Caleb (1.02), Maye, Nabers, Daniels", ""],
-    [2025, "SF", "Golden (2.03), Burden (2.04), McMillan, Jeanty (1.01), Loveland (2.02)", "The top two in the class were both 2nd-round picks."],
-    [2026, "SF", "Love, Tate, Mendoza, Tyson, Concepcion", "So far it's going in the order it was drafted."]
-  ],
-  "best": [
-    ["1st", "JSN 1.05 and Gibbs 1.06", 8, "2023. Bowers at 1.08 (Gavin, 2024) is the best value relative to where he went."],
-    ["2nd", "Amon-Ra St. Brown 2.09", 0, "2021. 1,625 career points, second only to Chase among all 240 draftees, and still worth 7,455. The best pick ever made outside round 1."],
-    ["3rd", "Trey McBride 3.06", 5, "2022. Finished TE1 overall, worth 7,352. Also: LaPorta 3.04 (Raj), Chase Brown 3.06 (Gavin), Tuten 3.01 (Nate), Fannin 3.04 (Raj), Hubbard 3.06 (Nate)."],
-    ["4th", "Only four 4th-rounders have ever hit", null, "Nico Collins 4.04 (George, 2021): 970 points, best finish WR8. Kyren Williams 4.06 (Gavin, 2022): 980 points, best finish RB6, still on Gavin's team. Michael Wilson 4.10 (Cole, 2023). Bucky Irving 4.10 (Nate, 2024): worth 5,805, the most valuable 4th-rounder ever."]
-  ],
-  "busts": [
-    ["Rondale Moore", "1.10", 1, 2021, "Out of the NFL, worth 0. Cole's original pick. (1QB draft.)"],
-    ["Michael Carter", "1.08", 1, 2021, "(1QB draft.)"],
-    ["Skyy Moore", "1.09", 7, 2022, "121 career points, best finish WR107."],
-    ["Kenny Pickett", "1.08", 5, 2022, "The first QB ever taken in a superflex round 1. Best finish QB28, now worth 505."],
-    ["Treylon Burks", "1.03", 0, 2022, "Best finish WR74. Walker went one pick earlier and London one pick later. Still on Cole's roster."],
-    ["Anthony Richardson", "1.03", 8, 2023, ""],
-    ["Marvin Harrison Jr.", "1.01", 8, 2024, "Colin has both a very good and a very bad draft history."],
-    ["Travis Hunter", "1.05", 1, 2025, "83 points, now listed as a DB. Also Cole's original pick."]
-  ],
-  "points": "Chase 1,683 · St. Brown 1,625 · Lawrence 1,441 · Gibbs 1,181 · Bijan 1,139 · DeVonta Smith 1,138",
-  "seasons": "Chase 403 (2024) · Bijan 371 · Gibbs 367 · Daniels 365 (as a rookie) · JSN 360 · Maye 360",
-  "classes": [
-    [5, 2022, 34329, "Jameson, Olave, Pickett, Christian Watson, Rachaad White and McBride. Four 1sts plus a TE1 in round 3."],
-    [8, 2023, 32787, "Five 1sts: Richardson, Stroud, JSN, Gibbs, Addison. This class turned an 0–14 team into a champion."],
-    [9, 2025, 31367, "Egbuka, Warren, Golden, Skattebo."],
-    [1, 2025, 30880, "Ward, McMillan, Hunter, Judkins, Fannin."],
-    [7, 2024, 28008, "Daniels, Nabers and Maye with three of the first five picks, plus McCarthy."]
-  ],
-  "classesMore": "Next: Raj 2026 · Cole 2026 (24,419) · Mbort 2026 · Nate 2022 · Gavin 2024",
-  "grades": [
-    [8, 11, 7, "55%", "A", "Picked JSN and Gibbs, now the two most valuable players in the league. Also picked Richardson and Harrison. Has kept only Gibbs."],
-    [5, 36, 9, "36%", "A–", "Most career points from his draftees (15,228) and the most hits (13). Drafts well, then trades the hits away: Chase is now Colin's, McBride is now Smyth's."],
-    [7, 26, 10, "31%", "A–", "2024 (Daniels, Nabers, Maye) plus Jeanty and Cook. Misses: Skyy Moore, McCarthy, Quentin Johnston, Henderson."],
-    [4, 19, 3, "42%", "B+", "The most efficient drafter: Walker, London, Bucky at 4.10, Tuten at 3.01, Hubbard."],
-    [3, 26, 3, "19%", "B+", "The best drafter after round 1: Bowers, Achane, Kyren, Chase Brown."],
-    [0, 38, 6, "32%", "B", "One of the best 2nd-round drafters in the league (St. Brown, Pickens, Burden, Shough). Round 1 has been rougher."],
-    [9, 20, 6, "20%", "B", "Golden, Warren and Egbuka look good; most of it is too early to grade. Worthy at 1.09 was a miss."],
-    [6, 13, 4, "23%", "B–", "Bijan at 1.01, then traded him. Loveland, Tyson and Concepcion look promising."],
-    [1, 39, 11, "18%", "C", "The most picks and the most 1sts, but the fewest hits. The 2021 1sts (Moore, Carter, Bateman) all busted; recent picks (McMillan, Fannin, LaPorta, Tate) are much better. Keeps the most draftees (24)."],
-    [10, 7, 1, "43%", "—", "Retired. Nico Collins at 4.04 is a legendary pick."],
-    [2, 5, 0, "0%", "N/A", "Has never made a 1st- or 2nd-round pick in six drafts; his draftees have scored 597 points combined. Still won a title and made three finals by trading for veterans."]
-  ],
-  "cole": {
-    "hits": ["St. Brown 2.09 (2021): the best pick outside round 1 in league history", "DeVonta Smith 1.09 (2021): 1,138 points", "Garrett Wilson 1.05 (2022): best finish WR10", "Pickens 2.02 (2022): best finish WR5", "Michael Wilson 4.10 (2023): one of four 4th-round hits ever", "Burden 2.04 (2025): worth 6,291, 2nd in his class", "Shough 2.09 (2025): currently QB11"],
-    "misses": ["Burks 1.03 (2022)", "Trey Sermon 2.02", "David Bell 2.04", "Kendre Miller 2.04", "Jermaine Burton and Javian Hawkins: 0 points each"],
-    "away": "St. Brown and Pickens both start for Colin, the defending champion. Colin's roster has 8 SPDL draftees: 2 were Cole's picks and only 1 (Gibbs) was Colin's own. Picks Cole traded away became JSN (2023 1.05) and Caleb Williams (2024 1.02), plus Brian Thomas Jr., Skattebo and RJ Harvey. The 2021 2.01 became Trevor Lawrence, but that was a 1QB draft: Lawrence's value jumped when the league went superflex in 2022.",
-    "best": "2026 is his best class: Love, Ty Simpson, Boston, Stowers, Fields and Brazzell, 24,419 in KTC value, all still on the roster."
-  },
-  "more": [
-    "QBs in round 1: none in 2021, which was a 1QB draft. Superflex started in 2022 and Kenny Pickett went 1.08. Three QBs went 1.02–1.04 in 2023, then five in round 1 in 2024 (Caleb, Daniels, Maye, McCarthy, Nix). All nine first-round QBs came from superflex drafts.",
-    "The 2021 QBs taken in round 3 (Fields, Lance, Zach Wilson, Mac Jones) were 1QB-format picks, so they were cheap for a reason.",
-    "1.07 is the unlucky slot: 1 of 4 hit (Bateman, Olave, Quentin Johnston, McCarthy), then TreVeyon Henderson in 2025. Picks 1.02, 1.04 and 1.05 are 4 for 4.",
-    "First TE taken each year: Pitts 1.03 (2021), McBride 3.06 (2022), then the end of round 1 every year since (Kincaid, Bowers, Warren, Sadiq at 1.08–1.10).",
-    "The 2021 class has scored the most (21,176 career points). The 2025 class is worth the most (134,372 KTC), ahead of 2026 (127,983).",
-    "Hit rate by position, all years: TE 43%, RB 36%, QB 29%, WR 21%. WRs are drafted the most (114 picks) and hit the least.",
-    "13 players from the 2021–25 classes have scored fewer than 5 career points."
+  [
+   "4th",
+   4,
+   40,
+   4
   ]
+ ],
+ "facts": [
+  [
+   "70%",
+   "First-round hit rate, 2021–24 classes. It falls to 38% in round 2 and 10% in round 4."
+  ],
+  [
+   "7 of 8",
+   "First-round RBs who hit. First-round WRs: 12 of 20."
+  ],
+  [
+   "63%",
+   "Picks made by someone other than the original owner (152 of 240). In 2023 it was 34 of 40."
+  ],
+  [
+   "32%",
+   "Draftees on no roster today (77 of 240). Only 107 are still with the team that drafted them."
+  ]
+ ],
+ "ones": [
+  [
+   2021,
+   "Najee Harris",
+   5,
+   "1QB draft. Three straight 200-point seasons, best finish RB3. Now unrostered (KTC 607)."
+  ],
+  [
+   2022,
+   "Breece Hall",
+   8,
+   "First superflex draft. Finished RB2 in 2023. Now on Smyth's team (5,076)."
+  ],
+  [
+   2023,
+   "Bijan Robinson",
+   6,
+   "The best 1.01 so far: 371 points in 2025. Now on Colin's team (9,418)."
+  ],
+  [
+   2024,
+   "Marvin Harrison Jr.",
+   8,
+   "The worst 1.01 so far. Best finish WR30. Now on Braeden's team (3,320)."
+  ],
+  [
+   2025,
+   "Ashton Jeanty",
+   7,
+   "Still a good RB, but only 4th in his own class by KTC."
+  ],
+  [
+   2026,
+   "Jeremiyah Love",
+   0,
+   "No. 1 in his class by KTC (6,242). Currently on IR with an ankle sprain."
+  ]
+ ],
+ "redraft": [
+  [
+   2021,
+   "1QB",
+   "Chase (1.02), St. Brown (2.09), Lawrence (2.01), Nico Collins (4.04), Javonte Williams",
+   "Lawrence went 2.01 in a 1QB format; superflex made him look like a steal later."
+  ],
+  [
+   2022,
+   "SF",
+   "McBride (3.06), Walker (1.02), London, Olave, James Cook (2.03)",
+   "The best player in the class went in round 3."
+  ],
+  [
+   2023,
+   "SF",
+   "JSN (1.05), Gibbs (1.06), Bijan (1.01), Flowers (1.09), Achane (2.02)",
+   "JSN and Gibbs are now the two most valuable players in the league."
+  ],
+  [
+   2024,
+   "SF",
+   "Bowers (1.08), Caleb (1.02), Maye, Nabers, Daniels",
+   ""
+  ],
+  [
+   2025,
+   "SF",
+   "Golden (2.03), Burden (2.04), McMillan, Jeanty (1.01), Loveland (2.02)",
+   "The top two in the class were both 2nd-round picks."
+  ],
+  [
+   2026,
+   "SF",
+   "Love, Tate, Mendoza, Tyson, Concepcion",
+   "So far it's going in the order it was drafted."
+  ]
+ ],
+ "best": [
+  [
+   "1st",
+   "JSN 1.05 and Gibbs 1.06",
+   8,
+   "2023. Bowers at 1.08 (Gavin, 2024) is the best value relative to where he went."
+  ],
+  [
+   "2nd",
+   "Amon-Ra St. Brown 2.09",
+   0,
+   "2021. 1,625 career points, second only to Chase among all 240 draftees, and still worth 7,455. The best pick ever made outside round 1."
+  ],
+  [
+   "3rd",
+   "Trey McBride 3.06",
+   5,
+   "2022. Finished TE1 overall, worth 7,352. Also: LaPorta 3.04 (Raj), Chase Brown 3.06 (Gavin), Tuten 3.01 (Nate), Fannin 3.04 (Raj), Hubbard 3.06 (Nate)."
+  ],
+  [
+   "4th",
+   "Only four 4th-rounders have ever hit",
+   null,
+   "Nico Collins 4.04 (George, 2021): 970 points, best finish WR8. Kyren Williams 4.06 (Gavin, 2022): 980 points, best finish RB6, still on Gavin's team. Michael Wilson 4.10 (Cole, 2023). Bucky Irving 4.10 (Nate, 2024): worth 5,805, the most valuable 4th-rounder ever."
+  ]
+ ],
+ "busts": [
+  [
+   "Rondale Moore",
+   "1.10",
+   1,
+   2021,
+   "Out of the NFL, worth 0. (1QB draft.)"
+  ],
+  [
+   "Michael Carter",
+   "1.08",
+   1,
+   2021,
+   "(1QB draft.)"
+  ],
+  [
+   "Skyy Moore",
+   "1.09",
+   7,
+   2022,
+   "121 career points, best finish WR107."
+  ],
+  [
+   "Kenny Pickett",
+   "1.08",
+   5,
+   2022,
+   "The first QB ever taken in a superflex round 1. Best finish QB28, now worth 505."
+  ],
+  [
+   "Treylon Burks",
+   "1.03",
+   0,
+   2022,
+   "Best finish WR74. Walker went one pick earlier and London one pick later. Still on the roster that drafted him."
+  ],
+  [
+   "Anthony Richardson",
+   "1.03",
+   8,
+   2023,
+   ""
+  ],
+  [
+   "Marvin Harrison Jr.",
+   "1.01",
+   8,
+   2024,
+   "Colin has both a very good and a very bad draft history."
+  ],
+  [
+   "Travis Hunter",
+   "1.05",
+   1,
+   2025,
+   "83 points, now listed as a DB."
+  ]
+ ],
+ "points": "Chase 1,683 · St. Brown 1,625 · Lawrence 1,441 · Gibbs 1,181 · Bijan 1,139 · DeVonta Smith 1,138",
+ "seasons": "Chase 403 (2024) · Bijan 371 · Gibbs 367 · Daniels 365 (as a rookie) · JSN 360 · Maye 360",
+ "classes": [
+  [
+   5,
+   2022,
+   34329,
+   "Jameson, Olave, Pickett, Christian Watson, Rachaad White and McBride. Four 1sts plus a TE1 in round 3."
+  ],
+  [
+   8,
+   2023,
+   32787,
+   "Five 1sts: Richardson, Stroud, JSN, Gibbs, Addison. This class turned an 0–14 team into a champion."
+  ],
+  [
+   9,
+   2025,
+   31367,
+   "Egbuka, Warren, Golden, Skattebo."
+  ],
+  [
+   1,
+   2025,
+   30880,
+   "Ward, McMillan, Hunter, Judkins, Fannin."
+  ],
+  [
+   7,
+   2024,
+   28008,
+   "Daniels, Nabers and Maye with three of the first five picks, plus McCarthy."
+  ]
+ ],
+ "classesMore": "Next: Raj 2026 · Cole 2026 · Mbort 2026 · Nate 2022 · Gavin 2024",
+ "grades": [
+  [
+   8,
+   11,
+   7,
+   "55%",
+   "A",
+   "Picked JSN and Gibbs, now the two most valuable players in the league. Also picked Richardson and Harrison. Has kept only Gibbs."
+  ],
+  [
+   5,
+   36,
+   9,
+   "36%",
+   "A–",
+   "Most career points from his draftees (15,228) and the most hits (13). Drafts well, then trades the hits away: Chase is now Colin's, McBride is now Smyth's."
+  ],
+  [
+   7,
+   26,
+   10,
+   "31%",
+   "A–",
+   "2024 (Daniels, Nabers, Maye) plus Jeanty and Cook. Misses: Skyy Moore, McCarthy, Quentin Johnston, Henderson."
+  ],
+  [
+   4,
+   19,
+   3,
+   "42%",
+   "B+",
+   "The most efficient drafter: Walker, London, Bucky at 4.10, Tuten at 3.01, Hubbard."
+  ],
+  [
+   3,
+   26,
+   3,
+   "19%",
+   "B+",
+   "The best drafter after round 1: Bowers, Achane, Kyren, Chase Brown."
+  ],
+  [
+   0,
+   38,
+   6,
+   "32%",
+   "B",
+   "One of the best 2nd-round drafters in the league (St. Brown, Pickens, Burden, Shough). Round 1 has been rougher."
+  ],
+  [
+   9,
+   20,
+   6,
+   "20%",
+   "B",
+   "Golden, Warren and Egbuka look good; most of it is too early to grade. Worthy at 1.09 was a miss."
+  ],
+  [
+   6,
+   13,
+   4,
+   "23%",
+   "B–",
+   "Bijan at 1.01, then traded him. Loveland, Tyson and Concepcion look promising."
+  ],
+  [
+   1,
+   39,
+   11,
+   "18%",
+   "C",
+   "The most picks and the most 1sts, but the fewest hits. The 2021 1sts (Moore, Carter, Bateman) all busted; recent picks (McMillan, Fannin, LaPorta, Tate) are much better. Keeps the most draftees (24)."
+  ],
+  [
+   10,
+   7,
+   1,
+   "43%",
+   "—",
+   "Retired. Nico Collins at 4.04 is a legendary pick."
+  ],
+  [
+   2,
+   5,
+   0,
+   "0%",
+   "N/A",
+   "Has never made a 1st- or 2nd-round pick in six drafts; his draftees have scored 597 points combined. Still won a title and made three finals by trading for veterans."
+  ]
+ ],
+ "more": [
+  "QBs in round 1: none in 2021, which was a 1QB draft. Superflex started in 2022 and Kenny Pickett went 1.08. Three QBs went 1.02–1.04 in 2023, then five in round 1 in 2024 (Caleb, Daniels, Maye, McCarthy, Nix). All nine first-round QBs came from superflex drafts.",
+  "The 2021 QBs taken in round 3 (Fields, Lance, Zach Wilson, Mac Jones) were 1QB-format picks, so they were cheap for a reason.",
+  "1.07 is the unlucky slot: 1 of 4 hit (Bateman, Olave, Quentin Johnston, McCarthy), then TreVeyon Henderson in 2025. Picks 1.02, 1.04 and 1.05 are 4 for 4.",
+  "First TE taken each year: Pitts 1.03 (2021), McBride 3.06 (2022), then the end of round 1 every year since (Kincaid, Bowers, Warren, Sadiq at 1.08–1.10).",
+  "The 2021 class has scored the most (21,176 career points). The 2025 class is worth the most (134,372 KTC), ahead of 2026 (127,983).",
+  "Hit rate by position, all years: TE 43%, RB 36%, QB 29%, WR 21%. WRs are drafted the most (114 picks) and hit the least.",
+  "13 players from the 2021–25 classes have scored fewer than 5 career points."
+ ]
 }

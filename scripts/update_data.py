@@ -27,16 +27,19 @@ def ktc():
     if not m:
         raise RuntimeError(f"KTC ktc-players block not found ({len(html)} bytes)")
     arr = json.loads(htmllib.unescape(m.group(1).strip()) if m.group(1).lstrip().startswith("&") else m.group(1))
-    plist, picks = [], {}
+    plist, picks, picks1 = [], {}, {}
     for p in arr:
         v = (p.get("superflexValues") or {}).get("value") or p.get("value") or 0
+        v1 = (p.get("oneQBValues") or {}).get("value") or 0
         if p.get("position") == "RDP":
             picks[p["playerName"]] = v
+            picks1[p["playerName"]] = v1
         else:
-            plist.append([p["playerName"], p.get("position"), p.get("team"), p.get("age"), v])
+            # [name, pos, team, age, superflex value, 1QB value]
+            plist.append([p["playerName"], p.get("position"), p.get("team"), p.get("age"), v, v1])
     if len(plist) < 200:
         raise RuntimeError(f"Only {len(plist)} KTC players parsed; refusing to overwrite")
-    (OUT / "ktc.json").write_text(json.dumps({"gen": now, "players": plist, "picks": picks}, separators=(",", ":")))
+    (OUT / "ktc.json").write_text(json.dumps({"gen": now, "players": plist, "picks": picks, "picks1qb": picks1}, separators=(",", ":")))
     print("ktc players:", len(plist), "picks:", len(picks))
 
 if __name__ == "__main__":
