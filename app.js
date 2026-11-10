@@ -134,20 +134,24 @@ function gradeTrade(sides,ts){ // sides: [[owner, [values...], items]]
   const [a0,a1]=ktcAdjust([...sides[0][1]].sort((x,y)=>y-x),[...sides[1][1]].sort((x,y)=>y-x),top);
   const d=(tot[0]+a0)-(tot[1]+a1);
   return [[sides[0][0],tot[0],sides[0][2],d,a0],[sides[1][0],tot[1],sides[1][2],-d,a1]]; }
+/* Team value = KeepTradeCut's own power-rankings method (prProcessLeague/prProcessVNew on keeptradecut.com):
+   every asset (players and picks) sorted by value; each roster slot is compared with the league's average asset in that
+   same slot, so stars count for much more than depth and a pile of mid pieces doesn't inflate a team. */
+function ktcPrAdj(v,slotAvg){ const t=10000; if(!(slotAvg>0)) slotAvg=.1; const r=t+100; let s=(.3*Math.pow(v/r,1.4)+.2*Math.pow(v/(1.05*slotAvg),1.25)+.2)*v; const n=Math.pow(v/(r+100),1.3); return s*((n+n+Math.pow(slotAvg/(r+100),1.2))/3*.7+.3); }
 function teamValues(){
   if(!(KTCV&&PLAYERS&&S.rosters)) return S.ktc.map(k=>({...k,value:k.adj,src:"snap"}));
   const pickV=(y,r)=>KTCV.picks[`${y} Mid ${['1st','2nd','3rd','4th'][r-1]}`]||0;
-  const out=[]; for(let o=0;o<N;o++){ const ids=S.rosters[o]||[];
-    const pl=ids.map(id=>{const p=PLAYERS[id]; if(!p) return null; const k=KTCV.byName[norm(p[0])]; return [p[0],p[1],k?Math.floor(k[1]):(p[3]||0),k?k[0]:0];}).filter(x=>x&&['QB','RB','WR','TE'].includes(x[1])).sort((a,b)=>b[3]-a[3]);
-    const pos={QB:0,RB:0,WR:0,TE:0,PICK:0}; pl.forEach(p=>pos[p[1]]+=p[3]);
-    Object.keys(S.fut).forEach(y=>[1,2,3,4].forEach(r=>S.fut[y][r].forEach((own,orig)=>{ if(own===o) pos.PICK+=pickV(y,r); })));
+  const teams=[]; for(let o=0;o<N;o++){ const ids=S.rosters[o]||[];
+    const pl=ids.map(id=>{const p=PLAYERS[id]; if(!p) return null; const k=KTCV.byName[norm(p[0])]; return [p[0],p[1],k?Math.floor(k[1]):(p[3]||0),k?k[0]:0];}).filter(x=>x&&['QB','RB','WR','TE'].includes(x[1]));
+    const assets=pl.map(p=>({pos:p[1],v:p[3]}));
+    Object.keys(S.fut).forEach(y=>[1,2,3,4].forEach(r=>S.fut[y][r].forEach((own,orig)=>{ if(own===o) assets.push({pos:'PICK',v:pickV(y,r)}); })));
+    assets.sort((a,b)=>b.v-a.v); pl.sort((a,b)=>b[3]-a[3]); teams.push({o,pl,assets}); }
+  const big=Math.max(...teams.map(t=>t.assets.length)), slotAvg=[];
+  for(let i=0;i<big;i++){ const vals=teams.map(t=>t.assets[i]).filter(a=>a&&a.v>0).map(a=>a.v); slotAvg.push(vals.length?Math.round(mean(vals)):0); }
+  const out=teams.map(({o,pl,assets})=>{ const pos={QB:0,RB:0,WR:0,TE:0,PICK:0}; let adj=0;
+    assets.forEach((a,i)=>{ const x=ktcPrAdj(a.v,slotAvg[i]); a.adj=x; adj+=x; pos[a.pos]+=x; });
     const top=pl.slice(0,20); const age=top.length?mean(top.map(p=>p[2])):0;
-    // lineup-weighted value: starters count fully, depth at a quarter, picks fully
-    const need={QB:2,RB:2,WR:3,TE:1}; const used=new Set(); let lineup=0;
-    Object.entries(need).forEach(([ps,n])=>{ pl.filter((p,i)=>p[1]===ps&&!used.has(i)).slice(0,n).forEach(p=>{used.add(pl.indexOf(p)); lineup+=p[3];}); });
-    pl.filter((p,i)=>!used.has(i)&&p[1]!=='QB').slice(0,2).forEach(p=>{used.add(pl.indexOf(p)); lineup+=p[3];});
-    const depth=pl.filter((p,i)=>!used.has(i)).reduce((s,p)=>s+p[3],0)*0.25;
-    out.push({o,value:Math.round(lineup+depth+pos.PICK*0.6),total:Math.round(pl.reduce((s,p)=>s+p[3],0)+pos.PICK),age,pos,young:pl.filter(p=>p[2]<=25).slice(0,3),src:"live"}); }
+    return {o,value:Math.round(adj),total:Math.round(assets.reduce((s,a)=>s+a.v,0)),age,pos,young:pl.filter(p=>p[2]<=25).slice(0,3),src:"live"}; });
   out.sort((a,b)=>b.value-a.value).forEach((k,i)=>k.rank=i+1); return out; }
 
 /* ---------------- season math ---------------- */
@@ -370,7 +374,7 @@ document.addEventListener('toggle',e=>{ const d=e.target; if(!(d instanceof HTML
 R.dynasty=function(el){ const rec=SEA.rec; const ppg=t=>rec[t].pts.length?mean(rec[t].pts):0; const rows=[...S.tv].sort((a,b)=>a.rank-b.rank);
   const rk=n=>`<span class="num ${n<=3?'up':n>=8?'down':''}" style="font-weight:600">${n}</span>`; const f27=S.fut[C.season+1]||S.fut[String(C.season+1)];
   el.innerHTML=`<div class="h-row"><div><div class="kicker">KeepTradeCut superflex values</div><h2>Dynasty</h2></div></div>
-  <p class="lead">${rows[0].src==='live'?'Team value weights each roster\'s best lineup fully, depth at a quarter and picks at 60%, using current KTC values.':'Team value is KTC\'s adjusted total for each roster plus its picks.'} Positional columns rank each room against the league (1 is best). Windows combine this season and the long run: <b>Contend</b> = 75%+ playoff odds with a top-five, young roster; <b>All-in</b> = 75%+ playoff odds but an older or thinner roster; <b>Bubble</b> = 25–75% playoff odds; <b>Retool</b> = under 25% odds but a top-five roster by value; <b>Rebuild</b> = under 25% odds and a bottom-half roster.</p>
+  <p class="lead">${rows[0].src==='live'?'Team value uses KeepTradeCut\'s own power-rankings formula: every player and pick is compared with the league\'s average asset at the same depth, so stars count far more than depth. It should match KTC\'s SPDL power rankings.':'Team value is KTC\'s adjusted total for each roster plus its picks.'} Positional columns rank each room against the league (1 is best). Windows combine this season and the long run: <b>Contend</b> = 75%+ playoff odds with a top-five, young roster; <b>All-in</b> = 75%+ playoff odds but an older or thinner roster; <b>Bubble</b> = 25–75% playoff odds; <b>Retool</b> = under 25% odds but a top-five roster by value; <b>Rebuild</b> = under 25% odds and a bottom-half roster.</p>
   <div class="card tw"><table><thead><tr><th>#</th><th>Team</th><th>Window</th><th class="r">Value</th><th class="r">QB</th><th class="r">RB</th><th class="r">WR</th><th class="r">TE</th><th class="r">Picks</th><th class="r">Avg age</th><th>Young core</th></tr></thead><tbody>
   ${rows.map(k=>`<tr class="${k.o===MY_TEAM?'me':''}"><td class="num muted">${k.rank}</td><td class="tc">${teamCell(k.o)}</td><td>${pillOf(windowOf(k.o))}</td><td class="r num"><b>${f0(k.value)}</b></td><td class="r">${rk(PR.QB[k.o])}</td><td class="r">${rk(PR.RB[k.o])}</td><td class="r">${rk(PR.WR[k.o])}</td><td class="r">${rk(PR.TE[k.o])}</td><td class="r">${rk(PR.PICK[k.o])}</td><td class="r num">${(+k.age).toFixed(1)}</td><td style="font-size:13px;min-width:220px">${k.young.map(y=>`<span class="chip">${esc(y[0])} <span class="muted">${y[1]} ${y[2]}</span></span>`).join("")}</td></tr>`).join("")}</tbody></table></div>
   <div class="card"><h3>Now vs. later</h3><p class="note" style="margin:4px 0 8px">${C.season} points per game against team value. Top right is strong now and later.</p><div class="lg">${['Contend','All-in','Bubble','Retool','Rebuild'].map(w=>`<span><i style="background:${WCOL[w]}"></i>${w}</span>`).join("")}</div>${scatter(ppg)}</div>
