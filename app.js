@@ -531,12 +531,12 @@ function computeFuture(){
     const st=base.map(t=>({players:t.players.map(p=>({...p})),picks:t.picks.map(p=>({...p}))}));
     yrs.forEach((Y,k)=>{
       st.forEach(t=>{ // age everyone one season, with randomness
-        t.players.forEach(p=>{ const g=(p.rook&&p.age<24?AGE_CURVE.ROOK:AGE_CURVE[p.pos])(p.age); const sd=p.rook?.32:.17; p.v=Math.max(0,p.v*(1+g)*Math.exp(sd*gauss()-sd*sd/2)); p.age+=1; });
+        t.players.forEach(p=>{ let g=(p.rook&&p.age<24?AGE_CURVE.ROOK:AGE_CURVE[p.pos])(p.age); if(g>0) g*=.5; const sd=p.rook?.32:.17; p.v=Math.max(0,p.v*(1+g)*Math.exp(sd*gauss()-sd*sd/2)); p.age+=1; });
         t.picks.filter(p=>p.y===Y).forEach(p=>{ const v=pickTierValue(Y,p.r); t.players.push({n:`${Y} R${p.r} pick`,pos:'WR',age:21.5,v:Math.max(0,v*Math.exp(.45*gauss()-.1)),rook:true}); });
-        t.picks=t.picks.filter(p=>p.y>Y); });
+        t.picks=t.picks.filter(p=>p.y>Y); t.players.sort((a,b)=>b.v-a.v); if(t.players.length>30) t.players.length=30; });
       const vals=st.map(t=>[...t.players.map(p=>p.v),...t.picks.map(p=>pickTierValue(p.y,p.r))].sort((a,b)=>b-a));
       const sc=futScore(vals); const order=[...Array(N).keys()].sort((a,b)=>sc[b]-sc[a]);
-      order.forEach((o,i)=>{ rankCnt[k][o][i]++; str[k][o]+=sc[o]; });
+      const avgSc=mean(sc); order.forEach((o,i)=>{ rankCnt[k][o][i]++; str[k][o]+=sc[o]/avgSc*100; });
       const sd=order.slice(0,6); const r1=[play(sd[3],sd[4],sc),play(sd[2],sd[5],sc)]; const f=[play(sd[0],r1[0][0],sc),play(sd[1],r1[1][0],sc)]; title[k][play(f[0][0],f[1][0],sc)[0]]++;
     }); }
   const now=S.tv.reduce((m,k)=>(m[k.o]=k.value,m),{});
@@ -560,7 +560,7 @@ R.future=function(el){
   <div class="card tw"><h3 style="margin-bottom:6px">Projected power rank</h3><p class="note" style="margin:0 0 8px">Average finish in the dynasty power rankings each season (1 is best), with title odds from a simulated six-team playoff. Click a column to sort.</p>
   <table><thead><tr><th>Team</th><th class="r">Now</th>${yrs.map(y=>`<th class="r">${y}</th>`).join("")}<th class="r">Peak year</th><th class="r">Trend</th></tr></thead><tbody>
   ${byNow.map(t=>`<tr class="${t.o===MY_TEAM?'me':''}"><td>${teamCell(t.o,HANDLE(t.o))}</td><td class="r num" data-v="${-KT[t.o].rank}">${KT[t.o].rank}</td>${yrs.map((_,k)=>cell(t,k)).join("")}<td class="r num">${peak(t)}</td><td class="r num ${delta(t)>0?'up':delta(t)<0?'down':'muted'}" data-v="${delta(t)}">${delta(t)>0?'▲ '+delta(t):delta(t)<0?'▼ '+(-delta(t)):'—'}</td></tr>`).join("")}</tbody></table></div>
-  <div class="card"><h3>Team strength by season</h3><p class="note" style="margin:4px 0 8px">Projected KTC power score, averaged over the simulations.</p>${futureChart(teams,yrs)}</div>
+  <div class="card"><h3>Team strength by season</h3><p class="note" style="margin:4px 0 8px">Projected KTC power score compared with that season's league average (100 = average, dashed line).</p>${futureChart(teams,yrs)}</div>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:8px">Title favorites</h3><div class="tw"><table><thead><tr><th>Season</th><th>Favorite</th><th class="r">Odds</th><th>Next</th></tr></thead><tbody>
     ${yrs.map((y,k)=>{ const o=[...teams].sort((a,b)=>b.title[k]-a.title[k]); return `<tr><td class="num"><b>${y}</b></td><td>${teamCell(o[0].o,null,true)}</td><td class="r num">${pctS(o[0].title[k])}</td><td class="note">${esc(short(o[1].o))} ${pctS(o[1].title[k])}, ${esc(short(o[2].o))} ${pctS(o[2].title[k])}</td></tr>`; }).join("")}</tbody></table></div></div>
   <div class="card"><h3 style="margin-bottom:8px">Rising and falling</h3>
@@ -573,16 +573,17 @@ R.future=function(el){
   <details class="card"><summary style="cursor:pointer;font-weight:600">How the projection works</summary><ul style="margin:10px 0 0;padding-left:18px;display:grid;gap:6px">
     <li>Starts from today's rosters and KeepTradeCut superflex values.</li>
     <li>Each season, every player's value moves along an age curve for his position. RBs start falling at 25 and drop fast after 27; WRs peak around 25–26 and fade after 28; TEs peak a bit later; QBs hold value into their early 30s.</li>
+    <li>Young players' growth is cut in half because KTC values already price most of it in. Rosters are trimmed to their 30 most valuable players each year.</li>
     <li>Picks turn into a rookie in their draft year, valued like KTC values that pick, with a wide range of outcomes. Every team gets its own picks for years no one has traded yet.</li>
     <li>Each simulated player gets a random breakout or decline every year (about ±17% for veterans, ±32% for young players), so far-off seasons are less certain.</li>
     <li>Team strength uses KTC's power-rankings formula (stars count far more than depth). Title odds come from a six-team playoff where stronger rosters win more often.</li>
     <li>It doesn't know about future trades, waiver pickups, injuries or the actual draft board, so treat it as where each roster is headed if nobody makes a move.</li></ul></details>`; };
 function futureChart(teams,yrs){ const W=720,H=340,l=56,r=600,tp=16,b=300; const xs=[0,...yrs.map((_,k)=>k+1)], labels=[C.season,...yrs];
-  const series=teams.map(t=>({o:t.o,v:[S.tv.find(k=>k.o===t.o).value,...t.str]})); const all=series.flatMap(s=>s.v);
-  const mn=Math.floor(Math.min(...all)/2000)*2000, mx=Math.ceil(Math.max(...all)/2000)*2000; const X=i=>l+i*(r-l)/(xs.length-1), Y=v=>b-(v-mn)/(mx-mn)*(b-tp);
+  const nowAvg=mean(S.tv.map(k=>k.value)); const series=teams.map(t=>({o:t.o,v:[S.tv.find(k=>k.o===t.o).value/nowAvg*100,...t.str]})); const all=series.flatMap(s=>s.v);
+  const mn=Math.floor(Math.min(...all)/5)*5, mx=Math.ceil(Math.max(...all)/5)*5; const X=i=>l+i*(r-l)/(xs.length-1), Y=v=>b-(v-mn)/(mx-mn)*(b-tp);
   const pal=['#1f77b4','#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#8c564b','#e377c2','#7f7f7f','#bcbd22'];
   let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Projected team strength by season">`;
-  for(let v=mn;v<=mx;v+=2000) s+=`<line x1="${l}" x2="${r}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--line)"/><text x="${l-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" style="fill:var(--muted)">${v/1000}k</text>`;
+  for(let v=mn;v<=mx;v+=5) s+=`<line x1="${l}" x2="${r}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:${v===100?'var(--muted)':'var(--line)'}" ${v===100?'stroke-dasharray="4 4"':''}/><text x="${l-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" style="fill:var(--muted)">${v}</text>`;
   labels.forEach((y,i)=>s+=`<text x="${X(i)}" y="${b+20}" text-anchor="middle" font-size="12" style="fill:var(--muted)">${i===0?'Now':y}</text>`);
   const ends=series.map((se,i)=>({i,y:Y(se.v[se.v.length-1])})).sort((a,c)=>a.y-c.y); for(let k=1;k<ends.length;k++) if(ends[k].y-ends[k-1].y<13) ends[k].y=ends[k-1].y+13;
   series.forEach((se,i)=>{ const c=pal[i%pal.length]; const me=se.o===MY_TEAM; s+=`<polyline fill="none" stroke="${c}" stroke-width="${me?3.5:2}" points="${se.v.map((v,k)=>`${X(k)},${Y(v)}`).join(' ')}"><title>${esc(NAME(se.o))}</title></polyline>`;
