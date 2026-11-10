@@ -15,7 +15,7 @@ const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
 const norm=s=>String(s).toLowerCase().replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g,'').replace(/[^a-z]/g,'');
 
 /* ---------------- state ---------------- */
-let S=null, PLAYERS=null, KTCV=null, LIVE_OK=false, LIVE_ERR=null, LIVE_AT=null;
+let S=null, PLAYERS=null, KTCV=null, KHIST=null, LIVE_OK=false, LIVE_ERR=null, LIVE_AT=null;
 let N=10, C, REG, PT, SEA, STAND, REMAIN, NEXTW, MODEL, GAP, OPT0, BASE, DORDER, KT, PR, TRADES, DECIDED={};
 let MY_TEAM=null;
 const ABBR=["GG","RAJ","KM","TES","WBT","SAS","YUT","OH","TAJ","KC","GZ"];
@@ -102,6 +102,27 @@ function ktcAdjust(A,B,top){
       else { const t=w-(tA-tB); if(t>0){ if(t<=10000) adj1=t; } else adj2=-t; } } }
   }
   return [adj1,adj2]; }
+
+/* Trade grading value = each asset's average KTC value from the trade date to today (weekly KTC history),
+   so a deal is judged on the whole stretch after it, not just the day it happened or today. */
+const ROUNDS=['1st','2nd','3rd','4th'];
+const yymmdd=d=>((d.getFullYear()%100)*10000+(d.getMonth()+1)*100+d.getDate());
+const draftDay=y=>new Date(y,4,10); // rookie drafts happen in early-to-mid May
+function seriesFrom(ser,startN){ return ser?ser.filter(p=>p[0]>=startN).map(p=>p[1]):[]; }
+function avgItem(it,ts,oneQB){
+  const now=itemValue(it,oneQB); if(!KHIST) return now;
+  const key=oneQB?'q':'sf', tN=yymmdd(new Date(ts*1000));
+  let m=it.match(/^(\d{4}) R(\d) → (.+) \([A-Z]+\)$/);
+  if(m){ const y=+m[1], r=+m[2], h=KHIST.players[m[3]]; const dd=draftDay(y);
+    const post=h?seriesFrom(h[key],Math.max(tN,yymmdd(dd))):[];
+    const preWeeks=Math.max(0,Math.round((dd-ts*1000)/(7*864e5)));
+    const generic=(oneQB?KTCV.picks1:KTCV.picks)[`${C.season+1} Mid ${ROUNDS[r-1]}`]||0;
+    const pts=[...post,now]; return (preWeeks*generic+pts.reduce((a,b)=>a+b,0))/(preWeeks+pts.length); }
+  m=it.match(/^(\d{4}) R(\d) \(/);
+  if(m){ const h=KHIST.picks[`${m[1]} Mid ${ROUNDS[+m[2]-1]}`]; if(!h||+m[1]<=C.season) return now; const pts=[...seriesFrom(h[key],tN),now]; return mean(pts); }
+  m=it.match(/^(.+) \([A-Z?]+\)$/);
+  if(m){ const h=KHIST.players[m[1]]; if(!h) return now; const pts=[...seriesFrom(h[key],tN),now]; return mean(pts); }
+  return now; }
 function gradeTrade(sides,season){ // sides: [[owner, [values...], items]]
   const oneQB=season<SF_START, top=oneQB?KTCV.top1:KTCV.top;
   const tot=sides.map(s=>s[1].reduce((x,y)=>x+y,0));
@@ -177,7 +198,7 @@ function compute(){
   const posRank=pos=>{const arr=[...Array(N).keys()].sort((a,b)=>KT[b].pos[pos]-KT[a].pos[pos]); const r={}; arr.forEach((t,i)=>r[t]=i+1); return r;};
   PR={QB:posRank('QB'),RB:posRank('RB'),WR:posRank('WR'),TE:posRank('TE'),PICK:posRank('PICK')};
   const joke=new Set(S.jokeTs);
-  TRADES=S.trades.filter(t=>t[3].length>=2&&!joke.has(t[2])).map(t=> KTCV ? [t[0],t[1],t[2],gradeTrade(t[3].map(s=>[s[0],s[2]?s[2].split('; ').map(it=>itemValue(it,t[0]<SF_START)):[],s[2]]),t[0])] : t);
+  TRADES=S.trades.filter(t=>t[3].length>=2&&!joke.has(t[2])).map(t=> KTCV ? [t[0],t[1],t[2],gradeTrade(t[3].map(s=>[s[0],s[2]?s[2].split('; ').map(it=>Math.round(avgItem(it,t[2],t[0]<SF_START))):[],s[2]]),t[0])] : t);
 }
 function windowOf(i){ // now = this season's playoff odds; later = KTC roster value rank and age
   const k=KT[i], po=BASE&&BASE[i]?BASE[i].po:0.5;
@@ -273,7 +294,7 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   el.innerHTML=`<div class="h-row"><div><div class="kicker">${TRADES.length} trades since 2020</div><h2>Trade Ledger</h2></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><label>Season<select id="tf-s"><option value="all">All seasons</option>${seasons.map(s=>`<option ${TF.season==s?'selected':''}>${s}</option>`).join("")}</select></label>
     <label>Team<select id="tf-t"><option value="all">All teams</option>${[...Array(S.owners.length).keys()].map(i=>`<option value="${i}" ${TF.team==i?'selected':''}>${esc(NAME(i))}</option>`).join("")}</select></label></div></div>
-  <p class="lead">Every trade is graded with today's KeepTradeCut values, so the ledger shows how deals have aged. Trades from 2020–21, before the league went superflex, use KTC's 1QB values. Two-team trades get KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. (KTC has no adjustment for 3+ team deals, so those compare each side with the average of the others.) Unmade picks count at mid-round value; drafted picks count as the player taken. Joke trades and quick do-overs are left out and listed at the bottom.</p>
+  <p class="lead">Every asset is valued at its <b>average KeepTradeCut value from the day of the trade to today</b>, so a deal is judged on the whole stretch since it happened: a player who was great for three years and then fell off still counts, and so does one who took a while to break out. Picks count at a typical pick value until they're used, then as the player taken. Trades from 2020–21, before the league went superflex, use KTC's 1QB values. Two-team trades get KTC's own trade-calculator value adjustment, so the side that got the best player is credited for consolidating and a pile of depth pieces doesn't automatically win. (KTC has no adjustment for 3+ team deals, so those compare each side with the average of the others.) Joke trades and quick do-overs are left out and listed at the bottom.</p>
   <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Best traders ${TF.season==='all'?'all-time':TF.season}</h3><div class="tw"><table><thead><tr><th>Manager</th><th class="r">Trades</th><th class="r">Won</th><th class="r">Net KTC</th></tr></thead><tbody>
     ${board.map(i=>`<tr class="${i===MY_TEAM?'me':''}"><td>${teamCell(i,HANDLE(i))}</td><td class="r num">${tot[i].n}</td><td class="r num">${tot[i].won}</td><td class="r num ${tot[i].net>=0?'up':'down'}"><b>${sgn(tot[i].net)}</b></td></tr>`).join("")}</tbody></table></div></div>
   <div class="card"><h3 style="margin-bottom:10px">Biggest heists</h3>${heists.map(h=>{const it=(h.t[3][h.i][2]||'nothing').split('; ');return `<div style="padding:8px 0;border-bottom:1px solid var(--line)">${teamCell(h.t[3][h.i][0],`${new Date(h.t[2]*1000).toLocaleDateString('en-US',{month:'short',year:'numeric'})}${h.t[0]<SF_START?' · 1QB era':''} · ${sgn(h.v)} KTC`)}<div class="note" style="margin-top:4px">Got ${esc(it.slice(0,4).join('; '))}${it.length>4?` and ${it.length-4} more`:''}</div></div>`}).join("")}</div></div>
@@ -285,7 +306,7 @@ R.trades=function(el){ const seasons=[...new Set(TRADES.map(t=>t[0]))].sort((a,b
   const more=$('tl-more'); if(more) more.onclick=()=>{TF.n+=30;R.trades(el)}; };
 function tradeCard(t){ const nets=tradeNet(t); const best=Math.max(...nets); const d=new Date(t[2]*1000);
   return `<div class="card trade"><div class="meta"><span>${d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})} · ${t[0]} season${t[1]>1?`, Week ${t[1]}`:''}</span><span>${t[3].length}-team trade</span></div>
-  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>KTC${t[0]<SF_START?' (1QB)':''} <b>${f0(s[1])}</b>${s[4]>0?` <span class="muted">+${f0(s[4])} adj.</span>`:''}</span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div></div>`; }
+  <div class="sides">${t[3].map((s,i)=>`<div class="side ${nets[i]===best&&best>0?'won':''}">${teamCell(s[0])}<div class="note">received</div><ul>${s[2]?s[2].split('; ').map(x=>`<li>${esc(x)}</li>`).join(""):'<li class="muted">Nothing listed</li>'}</ul><div class="val"><span>Avg KTC${t[0]<SF_START?' (1QB)':''} <b>${f0(s[1])}</b>${s[4]>0?` <span class="muted">+${f0(s[4])} adj.</span>`:''}</span><b class="${nets[i]>0?'up':nets[i]<0?'down':'muted'}">${sgn(nets[i])}</b></div></div>`).join("")}</div></div>`; }
 
 /* ---------------- DYNASTY ---------------- */
 R.dynasty=function(el){ const rec=SEA.rec; const ppg=t=>rec[t].pts.length?mean(rec[t].pts):0; const rows=[...S.tv].sort((a,b)=>a.rank-b.rank);
@@ -487,7 +508,8 @@ R.commish=function(el){
 /* ---------------- boot ---------------- */
 (async function boot(){
   try{ S=await j('data/static.json'); }catch(e){ $('main').innerHTML='<div class="notice">Couldn\'t load league data. Refresh to try again.</div>'; return; }
-  const [kt,pl]=await Promise.all([j('data/ktc.json').catch(()=>null), j('data/players.json').catch(()=>null)]);
+  const [kt,pl,kh]=await Promise.all([j('data/ktc.json').catch(()=>null), j('data/players.json').catch(()=>null), j('data/ktc_hist.json').catch(()=>null)]);
+  if(kh&&kh.players) KHIST=kh;
   if(kt&&kt.players){ KTCV={gen:kt.gen,picks:kt.picks||{},picks1:kt.picks1qb||kt.picks||{},map:{},map1:{},byName:{},top:0,top1:0}; kt.players.forEach(p=>{ const k=norm(p[0]), v1=p[5]!=null?p[5]:p[4]; KTCV.map[k]=Math.max(KTCV.map[k]||0,p[4]); KTCV.map1[k]=Math.max(KTCV.map1[k]||0,v1); KTCV.byName[k]=[p[4],p[3]]; KTCV.top=Math.max(KTCV.top,p[4]); KTCV.top1=Math.max(KTCV.top1,v1); }); }
   if(pl&&pl.players) PLAYERS=pl.players;
   compute(); header(); show(); initFirebase();
