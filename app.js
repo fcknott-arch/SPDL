@@ -143,7 +143,7 @@ function bar(p,cls){const on=p>=0.7&&cls!=='amber';return `<span class="pct ${cl
 function lockTime(w){ return S.locks[w]||Infinity; }
 
 /* ---------------- tabs ---------------- */
-const TABS=[["week","This Week"],["odds","Playoff Odds"],["luck","Luck & Lineups"],["trades","Trade Ledger"],["dynasty","Dynasty"],["history","History"],["whatif","What Ifs"],["pickem","Pick'em"],["polls","Polls"],["block","Trade Block"],["commish","Commish"]];
+const TABS=[["week","This Week"],["odds","Playoff Odds"],["luck","Luck & Lineups"],["trades","Trade Ledger"],["dynasty","Dynasty"],["history","History"],["drafts","Drafts"],["whatif","What Ifs"],["pickem","Pick'em"],["polls","Polls"],["block","Trade Block"],["commish","Commish"]];
 const R={};
 function current(){ const h=(location.hash||"").slice(1); return TABS.some(t=>t[0]===h)?h:"week"; }
 function renderNav(){ const cur=current(); $('tabs').innerHTML=TABS.map(([id,l])=>`<a href="#${id}" ${id===cur?'aria-current="page"':''}>${l}${(id==='pickem'&&NEXTW&&Date.now()<lockTime(NEXTW))?'<span class="dot" title="Picks open"></span>':''}</a>`).join(""); }
@@ -288,6 +288,33 @@ R.history=function(el){ const done=S.hist.filter(h=>h.done).sort((a,b)=>b.s-a.s)
   const hs=$('hs'); const drawS=()=>{ const h=S.hist.find(x=>x.s==hs.value); const st=[...h.st].sort((a,b)=>b[1]-a[1]||b[3]-a[3]);
     $('hs-t').innerHTML=`<table><thead><tr><th>#</th><th>Team that year</th><th class="r">W-L</th><th class="r">PF</th><th class="r">PA</th><th>Finish</th></tr></thead><tbody>${st.map((r,i)=>{const o=r[0]; const fin=h.champ===o?'🏆 Champion':h.ru===o?'Runner-up':h.third===o?'Third':(h.po||[]).includes(o)?'Playoffs':''; return `<tr><td class="num muted">${i+1}</td><td>${teamCell(o,`${nm(h,o)} · ${HANDLE(o)}`)}</td><td class="r num">${r[1]}-${r[2]}</td><td class="r num">${f1(r[3])}</td><td class="r num muted">${f1(r[4])}</td><td>${fin}</td></tr>`}).join("")}</tbody></table>${h.done?'':'<p class="note">Season in progress. See This Week for live standings.</p>'}`; };
   hs.onchange=drawS; drawS(); };
+
+
+/* ---------------- DRAFTS ---------------- */
+let DR=null;
+R.drafts=function(el){
+  if(!DR){ el.innerHTML='<div class="empty">Loading draft history…</div>'; j('data/drafts.json').then(d=>{DR=d; if(current()==='drafts') R.drafts(el);}).catch(()=>{el.innerHTML='<div class="notice">Couldn\'t load draft history. Refresh to try again.</div>';}); return; }
+  const D=DR, who=i=>i==null?'':teamCell(i,HANDLE(i),true), fmt=n=>(+n).toLocaleString('en-US');
+  const mx=Math.max(...D.rounds.map(r=>r[1]/r[2]));
+  const gcol=g=>g[0]==='A'?'var(--good)':g[0]==='B'?'var(--amber)':g[0]==='C'?'var(--bad)':'var(--muted)';
+  el.innerHTML=`<div class="h-row"><div><div class="kicker">Rookie drafts 2021–2026 · 240 picks</div><h2>Draft History</h2></div></div>
+  <p class="lead">Six rookie drafts, four rounds each. The 2020 startup draft and the joke 2024 expansion draft are left out. Values are KeepTradeCut superflex as of ${esc(D.asOf)}; points are full-PPR NFL career points since being drafted. A hit is at least one top-24 RB/WR or top-12 QB/TE season.</p>
+  <div class="notice"><b>Format note:</b> the 2021 draft was 1QB. Superflex started in 2022, so 2021 QB picks (and the lack of them in round 1) aren't comparable to later years. 2021–23 were snake drafts, 2024–26 linear; 2025–26 grades will move.</div>
+  <div class="grid3">${D.facts.map(f=>`<div class="card"><div style="font-family:var(--f-display);font-size:40px;font-weight:800;line-height:1">${esc(f[0])}</div><div class="note" style="margin-top:6px">${esc(f[1])}</div></div>`).join("")}</div>
+  <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Hit rate by round</h3><p class="note" style="margin:0 0 8px">2021–24 classes, which have had time to develop.</p>
+    <table><thead><tr><th>Round</th><th>Hit rate</th><th class="r">Hits</th><th class="r">Elite</th></tr></thead><tbody>${D.rounds.map(r=>`<tr><td><b>${r[0]}</b></td><td style="min-width:90px">${bar(r[1]/r[2],'amber')}</td><td class="r num">${r[1]} of ${r[2]}</td><td class="r num">${r[3]}</td></tr>`).join("")}</tbody></table>
+    <p class="note">Elite = top-12 RB/WR or top-6 QB/TE.</p></div>
+  <div class="card"><h3 style="margin-bottom:10px">Every 1.01</h3><table><tbody>${D.ones.map(o=>`<tr><td class="num muted">${o[0]}${o[0]===2021?'<div style="font-size:11px">1QB</div>':''}</td><td><b>${esc(o[1])}</b><div class="note">${esc(o[3])}</div></td><td>${who(o[2])}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="card"><h3 style="margin-bottom:6px">Redraft: each class by today's KTC</h3><p class="note" style="margin:0 0 8px">Original pick in parentheses where it's notable.</p><div class="tw"><table><thead><tr><th>Class</th><th>Top 5 today</th><th>Note</th></tr></thead><tbody>${D.redraft.map(r=>`<tr><td class="num"><b>${r[0]}</b> <span class="chip ${r[1]==='1QB'?'from':''}">${r[1]}</span></td><td>${esc(r[2])}</td><td class="note">${esc(r[3])}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="grid2"><div class="card"><h3 style="margin-bottom:10px">Best pick in each round</h3>${D.best.map(b=>`<div style="padding:8px 0;border-bottom:1px solid var(--line)"><div class="kicker" style="font-size:12px">${b[0]} round</div><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px"><b>${esc(b[1])}</b>${who(b[2])}</div><div class="note" style="margin-top:4px">${esc(b[3])}</div></div>`).join("")}</div>
+  <div class="card"><h3 style="margin-bottom:10px">Biggest 1st-round busts</h3><table><tbody>${D.busts.map(b=>`<tr><td><b>${esc(b[0])}</b> <span class="muted num">${b[1]} · ${b[3]}</span>${b[4]?`<div class="note">${esc(b[4])}</div>`:''}</td><td>${who(b[2])}</td></tr>`).join("")}</tbody></table></div></div>
+  <div class="grid2"><div class="card"><h3 style="margin-bottom:6px">Most career points</h3><p style="margin:0">${esc(D.points)}</p><h3 style="margin:14px 0 6px">Best single seasons</h3><p style="margin:0">${esc(D.seasons)}</p></div>
+  <div class="card"><h3 style="margin-bottom:10px">Best single draft classes</h3><table><tbody>${D.classes.map(c=>`<tr><td>${who(c[0])}</td><td class="num muted">${c[1]}</td><td class="r num"><b>${fmt(c[2])}</b></td></tr><tr><td colspan="3" class="note" style="padding-top:0">${esc(c[3])}</td></tr>`).join("")}</tbody></table><p class="note">${esc(D.classesMore)}</p></div></div>
+  <div class="card tw"><h3 style="margin-bottom:10px">Manager report cards</h3><table><thead><tr><th>Manager</th><th class="r">Picks</th><th class="r">1sts</th><th class="r">Hit rate</th><th class="r">Grade</th><th>Summary</th></tr></thead><tbody>${D.grades.map(g=>`<tr class="${g[0]===MY_TEAM?'me':''}"><td>${who(g[0])}</td><td class="r num">${g[1]}</td><td class="r num">${g[2]}</td><td class="r num">${g[3]}</td><td class="r"><b style="font-family:var(--f-display);font-size:22px;color:${gcol(g[4])}">${g[4]}</b></td><td style="min-width:260px;font-size:14px">${esc(g[5])}</td></tr>`).join("")}</tbody></table></div>
+  <div class="card"><div class="h-row" style="margin-bottom:8px"><h3>Spotlight: Cole's draft history</h3>${who(0)}</div>
+    <div class="grid2"><div><div class="kicker" style="font-size:12px;margin-bottom:4px">Hits</div><ul style="margin:0;padding-left:18px">${D.cole.hits.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div><div><div class="kicker" style="font-size:12px;margin-bottom:4px">Misses</div><ul style="margin:0;padding-left:18px">${D.cole.misses.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div></div>
+    <p style="margin:12px 0 0">${esc(D.cole.away)}</p><p class="note" style="margin-top:8px">${esc(D.cole.best)}</p></div>
+  <div class="card"><h3 style="margin-bottom:8px">A few more facts</h3><ul style="margin:0;padding-left:18px;display:grid;gap:6px">${D.more.map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`; };
 
 /* ---------------- WHAT IFS ---------------- */
 const RND=["Quarterfinal","Semifinal","Final"];
