@@ -98,10 +98,15 @@ def main():
         else:
             out["missing"].append(n)
         time.sleep(0.5)
-    if len(out["players"]) < 200:
-        raise SystemExit(f"Only {len(out['players'])} histories; refusing to overwrite")
-    (OUT / "ktc_hist.json").write_text(json.dumps(out, separators=(",", ":")))
+    status = {"gen": out["gen"], "names": len(names), "slugs_indexed": len(idx), "players": len(out["players"]),
+              "picks": len(out["picks"]), "missing": out["missing"][:80]}
+    (OUT / "ktc_hist_status.json").write_text(json.dumps(status, indent=1))
+    if len(out["players"]) >= 200:
+        (OUT / "ktc_hist.json").write_text(json.dumps(out, separators=(",", ":")))
     print("players", len(out["players"]), "picks", len(out["picks"]), "missing", len(out["missing"]), out["missing"])
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        (OUT / "ktc_hist_status.json").write_text(json.dumps({"error": f"{type(e).__name__}: {e}"[:2000]}, indent=1))
