@@ -221,7 +221,7 @@ function bar(p,cls){const on=p>=0.7&&cls!=='amber';return `<span class="pct ${cl
 function lockTime(w){ return S.locks[w]||Infinity; }
 
 /* ---------------- tabs ---------------- */
-const TABS=[["week","This Week"],["odds","Playoff Odds"],["luck","Luck & Lineups"],["trades","Trade Ledger"],["dynasty","Dynasty"],["history","History"],["drafts","Drafts"],["whatif","What Ifs"],["pickem","Pick'em"],["polls","Polls"],["block","Trade Block"],["commish","Commish"]];
+const TABS=[["week","This Week"],["odds","Playoff Odds"],["luck","Luck & Lineups"],["trades","Trade Ledger"],["dynasty","Dynasty"],["future","Next 4 Years"],["history","History"],["drafts","Drafts"],["whatif","What Ifs"],["pickem","Pick'em"],["polls","Polls"],["block","Trade Block"],["commish","Commish"]];
 const R={};
 function current(){ const h=(location.hash||"").slice(1); return TABS.some(t=>t[0]===h)?h:"week"; }
 function renderNav(){ const cur=current(); $('tabs').innerHTML=TABS.map(([id,l])=>`<a href="#${id}" ${id===cur?'aria-current="page"':''}>${l}${(id==='pickem'&&NEXTW&&Date.now()<lockTime(NEXTW))?'<span class="dot" title="Picks open"></span>':''}</a>`).join(""); }
@@ -499,6 +499,97 @@ function timelineCard(){ if(!LORE||!LORE.timeline) return ''; const types=[['all
   <div>${items.map(x=>`<div class="tl-item"><div class="d">${new Date(x[0]+'T12:00:00Z').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</div><div><b>${esc(x[2])}</b><span class="note">${esc(x[3])}</span></div></div>`).join("")}</div></div>`; }
 document.addEventListener('click',e=>{ const b=e.target.closest('[data-tl]'); if(!b) return; TLF=b.dataset.tl; const c=document.getElementById('timeline'); if(c) c.outerHTML=timelineCard(); });
 
+
+/* ---------------- NEXT 4 YEARS ----------------
+   Each roster is rolled forward a season at a time: players move along position age curves, picks turn into rookies
+   in their draft year, and every team gets its own picks for years nobody has traded yet. Team strength each year uses
+   KTC's power-rankings formula, run 600 times with random player outcomes (more spread the further out). */
+const AGE_CURVE={ // yearly change in value at a given age
+  QB:a=>a<=24?.08:a<=27?.03:a<=31?0:a<=33?-.07:a<=35?-.14:-.28,
+  RB:a=>a<=23?.08:a<=24?.03:a<=25?-.04:a<=26?-.11:a<=27?-.18:a<=28?-.25:-.32,
+  WR:a=>a<=23?.10:a<=25?.05:a<=26?0:a<=27?-.04:a<=28?-.09:a<=29?-.15:-.23,
+  TE:a=>a<=24?.10:a<=26?.05:a<=27?0:a<=28?-.06:a<=29?-.12:-.22,
+  ROOK:a=>a<=22?.06:a<=23?.03:0 };
+const FUT_YEARS=4, FUT_SIMS=600; let FUT=null;
+function pickTierValue(y,r){ const tiers={}; Object.entries(KTCV.picks).forEach(([n,v])=>{ const yy=n.slice(0,4); (tiers[yy]=tiers[yy]||[]).push(v); });
+  Object.values(tiers).forEach(a=>a.sort((x,z)=>z-x)); const ys=Object.keys(tiers).sort(); const a=tiers[String(y)]||tiers[ys[ys.length-1]]; if(!a) return 0;
+  return a[Math.floor((N*(r-1)+Math.min(N,Math.ceil(N*.5)))/4)]||0; }
+function futureBase(){ // per team: players [name,pos,age,value] and picks [year,round,origOwner]
+  const lastPickYear=Math.max(...Object.keys(S.fut).map(Number));
+  return [...Array(N).keys()].map(o=>{ const players=(S.rosters[o]||[]).map(id=>{ const p=PLAYERS[id]; if(!p||!['QB','RB','WR','TE'].includes(p[1])) return null; const k=KTCV.byName[norm(p[0])]; return k&&k[0]>0?{n:p[0],pos:p[1],age:+k[1]||+p[3]||25,v:k[0]}:null; }).filter(Boolean);
+    const picks=[]; Object.keys(S.fut).forEach(y=>[1,2,3,4].forEach(r=>S.fut[y][r].forEach((own,orig)=>{ if(own===o) picks.push({y:+y,r,orig}); })));
+    for(let y=lastPickYear+1;y<=C.season+FUT_YEARS;y++) [1,2,3,4].forEach(r=>picks.push({y,r,orig:o,gen:true}));
+    return {o,players,picks}; }); }
+function futScore(teams){ // KTC power-rankings formula across the league for one projected year
+  const big=Math.max(...teams.map(t=>t.length)), avg=[]; for(let i=0;i<big;i++){ const vs=teams.map(t=>t[i]).filter(v=>v>0); avg.push(vs.length?mean(vs):0); }
+  return teams.map(t=>t.reduce((s,v,i)=>s+ktcPrAdj(v,avg[i]),0)); }
+function computeFuture(){
+  const base=futureBase(), yrs=[...Array(FUT_YEARS)].map((_,k)=>C.season+1+k);
+  const rankCnt=yrs.map(()=>Array.from({length:N},()=>new Array(N).fill(0))), title=yrs.map(()=>new Array(N).fill(0)), str=yrs.map(()=>new Array(N).fill(0));
+  const play=(a,b,S_)=>{ const pa=Math.pow(S_[a],4), pb=Math.pow(S_[b],4); return Math.random()<pa/(pa+pb)?[a,b]:[b,a]; };
+  for(let s=0;s<FUT_SIMS;s++){
+    const st=base.map(t=>({players:t.players.map(p=>({...p})),picks:t.picks.map(p=>({...p}))}));
+    yrs.forEach((Y,k)=>{
+      st.forEach(t=>{ // age everyone one season, with randomness
+        t.players.forEach(p=>{ const g=(p.rook&&p.age<24?AGE_CURVE.ROOK:AGE_CURVE[p.pos])(p.age); const sd=p.rook?.32:.17; p.v=Math.max(0,p.v*(1+g)*Math.exp(sd*gauss()-sd*sd/2)); p.age+=1; });
+        t.picks.filter(p=>p.y===Y).forEach(p=>{ const v=pickTierValue(Y,p.r); t.players.push({n:`${Y} R${p.r} pick`,pos:'WR',age:21.5,v:Math.max(0,v*Math.exp(.45*gauss()-.1)),rook:true}); });
+        t.picks=t.picks.filter(p=>p.y>Y); });
+      const vals=st.map(t=>[...t.players.map(p=>p.v),...t.picks.map(p=>pickTierValue(p.y,p.r))].sort((a,b)=>b-a));
+      const sc=futScore(vals); const order=[...Array(N).keys()].sort((a,b)=>sc[b]-sc[a]);
+      order.forEach((o,i)=>{ rankCnt[k][o][i]++; str[k][o]+=sc[o]; });
+      const sd=order.slice(0,6); const r1=[play(sd[3],sd[4],sc),play(sd[2],sd[5],sc)]; const f=[play(sd[0],r1[0][0],sc),play(sd[1],r1[1][0],sc)]; title[k][play(f[0][0],f[1][0],sc)[0]]++;
+    }); }
+  const now=S.tv.reduce((m,k)=>(m[k.o]=k.value,m),{});
+  const teams=[...Array(N).keys()].map(o=>{ const b=base[o];
+    const vets=b.players.filter(p=>(p.pos==='RB'&&p.age>=27)||(p.pos==='WR'&&p.age>=29)||(p.pos==='TE'&&p.age>=29)||(p.pos==='QB'&&p.age>=33)).reduce((s,p)=>s+p.v,0);
+    const tot=b.players.reduce((s,p)=>s+p.v,0); const young=b.players.filter(p=>p.age<=24).sort((a,c)=>c.v-a.v).slice(0,3);
+    const firsts=b.picks.filter(p=>!p.gen&&p.r===1).length;
+    return {o,now:now[o]||0,str:yrs.map((_,k)=>str[k][o]/FUT_SIMS),avgRank:yrs.map((_,k)=>rankCnt[k][o].reduce((s,c,i)=>s+c*(i+1),0)/FUT_SIMS),top3:yrs.map((_,k)=>rankCnt[k][o].slice(0,3).reduce((s,c)=>s+c,0)/FUT_SIMS),title:yrs.map((_,k)=>title[k][o]/FUT_SIMS),agingShare:tot?vets/tot:0,young,firsts}; });
+  return {yrs,teams}; }
+const ordinal=n=>n+(['th','st','nd','rd'][(n%100>10&&n%100<14)?0:n%10]||'th');
+R.future=function(el){
+  if(!(KTCV&&PLAYERS&&S.rosters)){ el.innerHTML=`<div class="h-row"><div><div class="kicker">2027–2030</div><h2>Next 4 Years</h2></div></div><div class="notice">This tab needs live rosters from Sleeper. Refresh in a moment.</div>`; return; }
+  if(!FUT){ el.innerHTML='<div class="empty">Running 600 simulations of the next four seasons…</div>'; setTimeout(()=>{ FUT=computeFuture(); if(current()==='future') R.future(el); },30); return; }
+  const {yrs,teams}=FUT; const byNow=[...teams].sort((a,b)=>a.avgRank[0]-b.avgRank[0]);
+  const peak=t=>{ const i=t.str.indexOf(Math.max(...t.str)); return yrs[i]; };
+  const delta=t=>Math.round(t.avgRank[0]-t.avgRank[yrs.length-1]); // positive = rising
+  const risers=[...teams].sort((a,b)=>delta(b)-delta(a));
+  const cell=(t,k)=>{ const r=t.avgRank[k]; const c=r<=3?'var(--good-bg)':r>=8?'var(--bad-bg)':'transparent'; return `<td class="r num" data-v="${(-r).toFixed(2)}" style="background:${c}"><b>${r.toFixed(1)}</b><div class="note" style="font-size:11px">${pctS(t.title[k])} title</div></td>`; };
+  el.innerHTML=`<div class="h-row"><div><div class="kicker">${yrs[0]}–${yrs[yrs.length-1]} · ${FUT_SIMS} simulations</div><h2>Next 4 Years</h2></div></div>
+  <p class="lead">Where every roster is headed. Each season, players move along position age curves, picks become rookies, and team strength is scored with the same KeepTradeCut power-rankings formula as the Dynasty tab. Every season is simulated ${FUT_SIMS} times with random breakouts and busts, which grow the further out you look.</p>
+  <div class="card tw"><h3 style="margin-bottom:6px">Projected power rank</h3><p class="note" style="margin:0 0 8px">Average finish in the dynasty power rankings each season (1 is best), with title odds from a simulated six-team playoff. Click a column to sort.</p>
+  <table><thead><tr><th>Team</th><th class="r">Now</th>${yrs.map(y=>`<th class="r">${y}</th>`).join("")}<th class="r">Peak year</th><th class="r">Trend</th></tr></thead><tbody>
+  ${byNow.map(t=>`<tr class="${t.o===MY_TEAM?'me':''}"><td>${teamCell(t.o,HANDLE(t.o))}</td><td class="r num" data-v="${-KT[t.o].rank}">${KT[t.o].rank}</td>${yrs.map((_,k)=>cell(t,k)).join("")}<td class="r num">${peak(t)}</td><td class="r num ${delta(t)>0?'up':delta(t)<0?'down':'muted'}" data-v="${delta(t)}">${delta(t)>0?'▲ '+delta(t):delta(t)<0?'▼ '+(-delta(t)):'—'}</td></tr>`).join("")}</tbody></table></div>
+  <div class="card"><h3>Team strength by season</h3><p class="note" style="margin:4px 0 8px">Projected KTC power score, averaged over the simulations.</p>${futureChart(teams,yrs)}</div>
+  <div class="grid2"><div class="card"><h3 style="margin-bottom:8px">Title favorites</h3><div class="tw"><table><thead><tr><th>Season</th><th>Favorite</th><th class="r">Odds</th><th>Next</th></tr></thead><tbody>
+    ${yrs.map((y,k)=>{ const o=[...teams].sort((a,b)=>b.title[k]-a.title[k]); return `<tr><td class="num"><b>${y}</b></td><td>${teamCell(o[0].o,null,true)}</td><td class="r num">${pctS(o[0].title[k])}</td><td class="note">${esc(short(o[1].o))} ${pctS(o[1].title[k])}, ${esc(short(o[2].o))} ${pctS(o[2].title[k])}</td></tr>`; }).join("")}</tbody></table></div></div>
+  <div class="card"><h3 style="margin-bottom:8px">Rising and falling</h3>
+    ${risers.slice(0,3).map(t=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)">${teamCell(t.o,`From ${ordinal(Math.round(t.avgRank[0]))} in ${yrs[0]} to ${ordinal(Math.round(t.avgRank[yrs.length-1]))} by ${yrs[yrs.length-1]}`)}</div>`).join("")}
+    <div class="kicker" style="font-size:12px;margin:10px 0 4px">Headed down</div>
+    ${risers.slice(-3).reverse().map(t=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)">${teamCell(t.o,`From ${ordinal(Math.round(t.avgRank[0]))} in ${yrs[0]} to ${ordinal(Math.round(t.avgRank[yrs.length-1]))} by ${yrs[yrs.length-1]}`)}</div>`).join("")}</div></div>
+  <div class="card tw"><h3 style="margin-bottom:6px">What's driving it</h3><table><thead><tr><th>Team</th><th class="r">Value in aging players</th><th class="r">Own future 1sts held</th><th>Young core (24 and under)</th></tr></thead><tbody>
+    ${byNow.map(t=>`<tr class="${t.o===MY_TEAM?'me':''}"><td>${teamCell(t.o,null,true)}</td><td class="r">${bar(t.agingShare,'amber')}</td><td class="r num">${t.firsts}</td><td style="font-size:13px;min-width:220px">${t.young.map(p=>`<span class="chip">${esc(p.n)} <span class="muted">${p.pos} ${(+p.age).toFixed(0)}</span></span>`).join("")||'<span class="muted">—</span>'}</td></tr>`).join("")}</tbody></table>
+    <p class="note">Aging players = RBs 27+, WRs and TEs 29+, QBs 33+. "1sts held" counts traded-for and own 1sts in ${Object.keys(S.fut).join(', ')}.</p></div>
+  <details class="card"><summary style="cursor:pointer;font-weight:600">How the projection works</summary><ul style="margin:10px 0 0;padding-left:18px;display:grid;gap:6px">
+    <li>Starts from today's rosters and KeepTradeCut superflex values.</li>
+    <li>Each season, every player's value moves along an age curve for his position. RBs start falling at 25 and drop fast after 27; WRs peak around 25–26 and fade after 28; TEs peak a bit later; QBs hold value into their early 30s.</li>
+    <li>Picks turn into a rookie in their draft year, valued like KTC values that pick, with a wide range of outcomes. Every team gets its own picks for years no one has traded yet.</li>
+    <li>Each simulated player gets a random breakout or decline every year (about ±17% for veterans, ±32% for young players), so far-off seasons are less certain.</li>
+    <li>Team strength uses KTC's power-rankings formula (stars count far more than depth). Title odds come from a six-team playoff where stronger rosters win more often.</li>
+    <li>It doesn't know about future trades, waiver pickups, injuries or the actual draft board, so treat it as where each roster is headed if nobody makes a move.</li></ul></details>`; };
+function futureChart(teams,yrs){ const W=720,H=340,l=56,r=600,tp=16,b=300; const xs=[0,...yrs.map((_,k)=>k+1)], labels=[C.season,...yrs];
+  const series=teams.map(t=>({o:t.o,v:[S.tv.find(k=>k.o===t.o).value,...t.str]})); const all=series.flatMap(s=>s.v);
+  const mn=Math.floor(Math.min(...all)/2000)*2000, mx=Math.ceil(Math.max(...all)/2000)*2000; const X=i=>l+i*(r-l)/(xs.length-1), Y=v=>b-(v-mn)/(mx-mn)*(b-tp);
+  const pal=['#1f77b4','#d62728','#2ca02c','#9467bd','#ff7f0e','#17becf','#8c564b','#e377c2','#7f7f7f','#bcbd22'];
+  let s=`<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Projected team strength by season">`;
+  for(let v=mn;v<=mx;v+=2000) s+=`<line x1="${l}" x2="${r}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--line)"/><text x="${l-8}" y="${Y(v)+4}" text-anchor="end" font-size="11" style="fill:var(--muted)">${v/1000}k</text>`;
+  labels.forEach((y,i)=>s+=`<text x="${X(i)}" y="${b+20}" text-anchor="middle" font-size="12" style="fill:var(--muted)">${i===0?'Now':y}</text>`);
+  const ends=series.map((se,i)=>({i,y:Y(se.v[se.v.length-1])})).sort((a,c)=>a.y-c.y); for(let k=1;k<ends.length;k++) if(ends[k].y-ends[k-1].y<13) ends[k].y=ends[k-1].y+13;
+  series.forEach((se,i)=>{ const c=pal[i%pal.length]; const me=se.o===MY_TEAM; s+=`<polyline fill="none" stroke="${c}" stroke-width="${me?3.5:2}" points="${se.v.map((v,k)=>`${X(k)},${Y(v)}`).join(' ')}"><title>${esc(NAME(se.o))}</title></polyline>`;
+    se.v.forEach((v,k)=>s+=`<circle cx="${X(k)}" cy="${Y(v)}" r="3" fill="${c}"><title>${esc(short(se.o))} ${labels[k]}: ${f0(v)}</title></circle>`);
+    const e=ends.find(x=>x.i===i); s+=`<text x="${r+8}" y="${e.y+4}" font-size="12" font-weight="${me?700:500}" fill="${c}">${esc(short(se.o))}</text>`; });
+  return s+`</svg>`; }
+
 /* ---------------- WHAT IFS ---------------- */
 const RND=["Quarterfinal","Semifinal","Final"];
 R.whatif=function(el){ const WI=S.whatif; const altPaths={};
@@ -632,6 +723,6 @@ R.commish=function(el){
   if(kt&&kt.players){ KTCV={gen:kt.gen,picks:kt.picks||{},picks1:kt.picks1qb||kt.picks||{},map:{},map1:{},byName:{},top:0,top1:0}; kt.players.forEach(p=>{ const k=norm(p[0]), v1=p[5]!=null?p[5]:p[4]; KTCV.map[k]=Math.max(KTCV.map[k]||0,p[4]); KTCV.map1[k]=Math.max(KTCV.map1[k]||0,v1); KTCV.byName[k]=[p[4],p[3]]; KTCV.top=Math.max(KTCV.top,p[4]); KTCV.top1=Math.max(KTCV.top1,v1); }); }
   if(pl&&pl.players) PLAYERS=pl.players;
   compute(); header(); show(); initFirebase();
-  try{ await live(); compute(); header(); show(); }catch(e){ console.warn(e); LIVE_ERR=e.message; header(); }
+  try{ await live(); compute(); FUT=null; header(); show(); }catch(e){ console.warn(e); LIVE_ERR=e.message; header(); }
 })();
 })();
