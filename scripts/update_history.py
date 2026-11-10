@@ -42,7 +42,7 @@ def trade_names():
                     names.add(m.group(1))
                     continue
                 m = re.match(r"^(\d{4}) R(\d) \(", it)
-                if m:
+                if m and 1 <= int(m.group(2)) <= 4:
                     picks.add(f"{m.group(1)} Mid {['1st', '2nd', '3rd', '4th'][int(m.group(2)) - 1]}")
     return sorted(names), sorted(picks)
 
@@ -109,4 +109,5 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        (OUT / "ktc_hist_status.json").write_text(json.dumps({"error": f"{type(e).__name__}: {e}"[:2000]}, indent=1))
+        import traceback
+        (OUT / "ktc_hist_status.json").write_text(json.dumps({"error": traceback.format_exc()[-2000:]}, indent=1))
