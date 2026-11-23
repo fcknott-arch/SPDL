@@ -395,11 +395,11 @@ function buildMock(f27){ const bd=S.board; if(!bd||!DORDER) return null;
   const score=(o,pos)=>{ const a=[...rooms[o][pos]].sort((x,y)=>y-x); return NEED_K[pos].reduce((s,w,i)=>s+w*(a[i]||0),0); };
   const need=(o,pos)=>{ if(!live) return {m:1,rk:0}; const all=[...Array(N).keys()].map(t=>score(t,pos)), avg=mean(all), mine=all[o];
     const rk=all.filter(v=>v>mine).length+1; return {m:Math.max(.8,Math.min(1.3,1+.4*(1-mine/avg))),rk}; };
-  const avail=bd.players.map((p,i)=>({n:p[0],pos:p[1],sch:p[2],note:p[3],i})); const out=[];
+  const avail=bd.players.map((p,i)=>({n:p[0],pos:p[1],sch:p[2],note:p[3],i,v:p[4]||prospectV(i)})); const out=[];
   [1,2].forEach(r=>DORDER.forEach((orig,k)=>{ const o=f27?f27[r][orig]:orig; let best=null;
-    avail.forEach(p=>{ const nd=need(o,p.pos), sc=prospectV(p.i)*nd.m; if(!best||sc>best.sc) best={p,sc,nd}; });
-    if(!best) return; avail.splice(avail.indexOf(best.p),1); rooms[o][best.p.pos].push(prospectV(best.p.i)*.8);
-    const pk=r*N-N+k+1, d=best.p.i+1-pk; const why=!live?'':best.nd.m>=1.12?`Need: ${best.p.pos} room ${ordinal(best.nd.rk)} of ${N}`:d<=-3?`Value: #${best.p.i+1} on the board`:d>=3?`Reach for need (#${best.p.i+1} on the board)`:'Best available';
+    avail.forEach(p=>{ const nd=need(o,p.pos), sc=p.v*nd.m; if(!best||sc>best.sc) best={p,sc,nd}; });
+    if(!best) return; avail.splice(avail.indexOf(best.p),1); rooms[o][best.p.pos].push(best.p.v*.8);
+    const pk=r*N-N+k+1, d=best.p.i+1-pk; const why=!live?'':best.nd.m>=1.1?`Need: ${best.p.pos} room ${ordinal(best.nd.rk)} of ${N}`:d<=-3?`Value: #${best.p.i+1} on the board`:d>=3?`Reach for need (#${best.p.i+1} on the board)`:'Best available';
     out.push({pk:`${r}.${String(k+1).padStart(2,'0')}`,o,via:o===orig?'':'via '+short(orig),p:best.p,why}); }));
   return {out,live}; }
 function mockCard(f27){ const m=buildMock(f27); if(!m) return ''; const bd=S.board;
