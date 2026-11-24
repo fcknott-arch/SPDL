@@ -1,35 +1,5 @@
 {
- "gen": "2026-11-23T22:02:15.327893+00:00",
+ "gen": "2026-11-24T20:38:58.806547+00:00",
  "players": "ok",
- "ktc": "ok",
- "ktc_count": [
-  464,
-  36
- ],
- "ktc_top": [
-  [
-   "Jahmyr Gibbs",
-   "RB",
-   "DET",
-   24.7,
-   9999,
-   9995
-  ],
-  [
-   "Jaxon Smith-Njigba",
-   "WR",
-   "SEA",
-   24.8,
-   9999,
-   9999
-  ],
-  [
-   "Josh Allen",
-   "QB",
-   "BUF",
-   30.5,
-   9963,
-   7859
-  ]
- ]
+ "ktc": "failed: RuntimeError: KTC ktc-players block not found (354921 bytes)"
 }
