@@ -1,5 +1,5 @@
 {
- "gen": "2026-11-25T19:56:06.925945+00:00",
+ "gen": "2026-11-26T19:36:49.356051+00:00",
  "players": "ok",
- "ktc": "failed: RuntimeError: KTC ktc-players block not found (355474 bytes)"
+ "ktc": "failed: RuntimeError: KTC ktc-players block not found (360623 bytes)"
 }
